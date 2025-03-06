@@ -36,7 +36,7 @@ export class AegisAgentService {
 
   async agentChat(prompt: string) {
     try {
-      const llmPrompt = `You are an AI agent specializing in the mantle blokchain. Provide a clear, concise, and accurate response to the following message: ${prompt}`;
+      const llmPrompt = `You are an AI agent specializing in the wormhole multichain. Provide a clear, concise, and accurate response to the following message: ${prompt}`;
 
       const result = await generateText({
         model: openai('gpt-4o-mini'),
@@ -90,7 +90,7 @@ export class AegisAgentService {
     }
   }
 
-  async crossSwapToken() {
+  async crossSwapToken(pK: string) {
     // const provider = createPublicClient({
     //   chain: base,
     //   transport: http('https://rpc.network'),
@@ -102,10 +102,7 @@ export class AegisAgentService {
     //   transport: http('https://rpc.network'),
     //   account: account,
     // });
-    const signer = new ethers.Wallet(
-      '0xf3faeee7d53b789098f8d6c03418b34f3a99aa157cc7c2321fa1ddb5d69fbb5d',
-      provider,
-    );
+    const signer = new ethers.Wallet(pk, provider);
 
     try {
       const quotes = await fetchQuote({
