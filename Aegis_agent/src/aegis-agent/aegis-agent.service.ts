@@ -102,7 +102,7 @@ export class AegisAgentService {
     //   transport: http('https://rpc.network'),
     //   account: account,
     // });
-    const signer = new ethers.Wallet(pk, provider);
+    const signer = new ethers.Wallet(pK, provider);
 
     try {
       const quotes = await fetchQuote({
