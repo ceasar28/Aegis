@@ -1,0 +1,26 @@
+{
+  "name": "@goat-sdk/plugin-mayan",
+  "version": "1.0.0",
+  "files": [
+    "dist/**/*",
+    "README.md",
+    "package.json"
+  ],
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "scripts": {
+    "build": "tsup",
+    "clean": "rm -rf dist",
+    "test": "vitest run --passWithNoTests"
+  },
+  "peerDependencies": {
+    "@goat-sdk/wallet-evm": "^0.2.5",
+    "@goat-sdk/core": "^0.4.5",
+    "viem": "^2.22.3",
+    "zod": "^3.23.8"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "description": ""
+}
