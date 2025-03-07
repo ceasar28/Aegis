@@ -59,9 +59,11 @@ export class AegisBotService {
 
       const regex2 = /^0x[a-fA-F0-9]{40}$/;
       const regex = /^Swap (?:also )?(\d+\.?\d*) (\w+) (?:to|for) (\w+)$/i;
+
+      const swapRegex = /\b(swap)\b/i;
       const match = msg.text.trim().match(regex);
       const match2 = msg.text.trim().match(regex2);
-      if ((match || match2) && !session) {
+      if ((swapRegex.test(msg.text.trim()) || match || match2) && !session) {
         console.log(msg.text.trim());
         return this.handleAgentprompts(user, msg.text.trim());
       }
@@ -134,105 +136,130 @@ export class AegisBotService {
   ) => {
     await this.aegisAgentbot.sendChatAction(msg.chat.id, 'typing');
     try {
-      // const regex2 = /^0x[a-fA-F0-9]{40}$/;
-      // const regex = /^Swap (?:also )?(\d+\.?\d*) (\w+) (?:to|for) (\w+)$/i;
-      // const match = msg.text.trim().match(regex);
-      // const match2 = msg.text.trim().match(regex2);
-      // console.log(msg.text.trim());
+      const regex2 = /^0x[a-fA-F0-9]{40}$/;
+      const regex = /^Swap (?:also )?(\d+\.?\d*) (\w+) (?:to|for) (\w+)$/i;
+      const swapRegex = /\b(swap)\b/i;
+      const match = msg.text.trim().match(regex);
+      const match2 = msg.text.trim().match(regex2);
+      console.log(msg.text.trim());
 
-      // if (match) {
-      //   const user = await this.UserModel.findOne({ chatId: msg.chat.id });
-      //   await this.aegisAgentbot.sendChatAction(user.chatId, 'typing');
-      //   const encryptedWallet = await this.walletService.decryptEvmWallet(
-      //     `${process.env.DEFAULT_WALLET_PIN}`,
-      //     user.walletDetails,
-      //   );
-      //   console.log(encryptedWallet);
-      //   if (encryptedWallet.privateKey) {
-      //     const response = await this.aegisAgentService.swapToken(
-      //       encryptedWallet.privateKey,
-      //       msg.text.trim(),
-      //     );
-      //     if (response) {
-      //       const regex = /0x[a-fA-F0-9]{64}/g;
-      //       const matches = response.match(regex);
-      //       return await this.aegisAgentbot.sendMessage(
-      //         user.chatId,
-      //         `${response}.\n${matches[0] ? `View on mantlescan [${matches[0]}](https://mantlescan.xyz/tx/${matches[0]})` : ''}`,
-      //         {
-      //           parse_mode: 'Markdown',
-      //         },
-      //       );
-      //     }
-      //   }
-      // }
-      // if (session.tokenInsight && match2) {
-      //   console.log('here');
-      //   const tokenInsight = await this.aegisAgentService.analyzeToken(
-      //     msg.text.trim(),
-      //   );
-      //   if (tokenInsight.insight) {
-      //     await this.aegisAgentbot.sendMessage(
-      //       msg.chat.id,
-      //       `${tokenInsight.insight}`,
-      //       { parse_mode: 'Markdown' },
-      //     );
-      //     await this.SessionModel.deleteMany({ chatId: msg.chat.id });
-      //     return;
-      //   }
-      // }
+      if (swapRegex.test(msg.text.trim())) {
+        const user = await this.UserModel.findOne({ chatId: msg.chat.id });
+        await this.aegisAgentbot.sendChatAction(user.chatId, 'typing');
+        const encryptedEvmWallet = await this.walletService.decryptEvmWallet(
+          `${process.env.DEFAULT_WALLET_PIN}`,
+          user.evmWalletDetails,
+        );
+        const encryptedSolanaWallet =
+          await this.walletService.decryptSolanaWallet(
+            `${process.env.DEFAULT_WALLET_PIN}`,
+            user.solanaWalletDetails,
+          );
 
-      // if (session.allocationSetting) {
-      //   const Allocation = await this.validateAllocations(
-      //     msg.text!.trim(),
-      //     msg.chat.id,
-      //   );
+        if (encryptedEvmWallet.privateKey || encryptedSolanaWallet.privateKey) {
+          const response = await this.aegisAgentService.crossSwapToken(
+            {
+              evm: encryptedEvmWallet.privateKey,
+              solana: encryptedSolanaWallet.privateKey,
+            },
+            msg.text.trim(),
+          );
+          console.log('response :', response);
+        }
+      }
+      if (match) {
+        const user = await this.UserModel.findOne({ chatId: msg.chat.id });
+        await this.aegisAgentbot.sendChatAction(user.chatId, 'typing');
+        const encryptedWallet = await this.walletService.decryptEvmWallet(
+          `${process.env.DEFAULT_WALLET_PIN}`,
+          user.evmWalletDetails,
+        );
+        console.log(encryptedWallet);
+        if (encryptedWallet.privateKey) {
+          const response = await this.aegisAgentService.swapToken(
+            encryptedWallet.privateKey,
+            msg.text.trim(),
+          );
+          if (response) {
+            const regex = /0x[a-fA-F0-9]{64}/g;
+            const matches = response.match(regex);
+            return await this.aegisAgentbot.sendMessage(
+              user.chatId,
+              `${response}.\n${matches[0] ? `View on mantlescan [${matches[0]}](https://mantlescan.xyz/tx/${matches[0]})` : ''}`,
+              {
+                parse_mode: 'Markdown',
+              },
+            );
+          }
+        }
+      }
+      if (session.tokenInsight && match2) {
+        console.log('here');
+        const tokenInsight = await this.aegisAgentService.analyzeToken(
+          msg.text.trim(),
+        );
+        if (tokenInsight.insight) {
+          await this.aegisAgentbot.sendMessage(
+            msg.chat.id,
+            `${tokenInsight.insight}`,
+            { parse_mode: 'Markdown' },
+          );
+          await this.SessionModel.deleteMany({ chatId: msg.chat.id });
+          return;
+        }
+      }
 
-      //   console.log(Allocation);
-      //   if (Allocation.allocation1 && Allocation.allocation2) {
-      //     await this.UserModel.updateOne(
-      //       { chatId: msg.chat.id },
-      //       {
-      //         usdcAllocation: Allocation.allocation1,
-      //         modeAllocation: Allocation.allocation2,
-      //       },
-      //     );
-      //   }
-      //   await this.SessionModel.deleteMany({ chatId: msg.chat.id });
-      //   await this.aegisAgentbot.sendMessage(
-      //     msg.chat.id,
-      //     `Allocation succesfully set\n- USDC :${Allocation.allocation1}%\n- MOE : ${Allocation.allocation2} %`,
-      //   );
-      // }
+      if (session.allocationSetting) {
+        const Allocation = await this.validateAllocations(
+          msg.text!.trim(),
+          msg.chat.id,
+        );
 
-      // if (session.thresholdSetting) {
-      //   const threshold = await this.validateThresholds(
-      //     msg.text!.trim(),
-      //     msg.chat.id,
-      //   );
-      //   if (threshold.upperThreshold && threshold.lowerThreshold) {
-      //     await this.UserModel.updateOne(
-      //       { chatId: msg.chat.id },
-      //       {
-      //         upperThreshold: threshold.upperThreshold,
-      //         lowerThreshold: threshold.lowerThreshold,
-      //       },
-      //     );
-      //   }
-      //   await this.SessionModel.deleteMany({ chatId: msg.chat.id });
-      //   await this.aegisAgentbot.sendMessage(
-      //     msg.chat.id,
-      //     `Threshold succesfully set\n- Upper :${threshold.upperThreshold}%\n- Lower : ${threshold.lowerThreshold} %`,
-      //   );
-      // }
+        console.log(Allocation);
+        if (Allocation.allocation1 && Allocation.allocation2) {
+          await this.UserModel.updateOne(
+            { chatId: msg.chat.id },
+            {
+              usdcAllocation: Allocation.allocation1,
+              modeAllocation: Allocation.allocation2,
+            },
+          );
+        }
+        await this.SessionModel.deleteMany({ chatId: msg.chat.id });
+        await this.aegisAgentbot.sendMessage(
+          msg.chat.id,
+          `Allocation succesfully set\n- USDC :${Allocation.allocation1}%\n- MOE : ${Allocation.allocation2} %`,
+        );
+      }
 
-      // if (session) {
-      //   // update users answerId
-      //   await this.SessionModel.updateOne(
-      //     { _id: session._id },
-      //     { $push: { userInputId: msg.message_id } },
-      //   );
-      // }
+      if (session.thresholdSetting) {
+        const threshold = await this.validateThresholds(
+          msg.text!.trim(),
+          msg.chat.id,
+        );
+        if (threshold.upperThreshold && threshold.lowerThreshold) {
+          await this.UserModel.updateOne(
+            { chatId: msg.chat.id },
+            {
+              upperThreshold: threshold.upperThreshold,
+              lowerThreshold: threshold.lowerThreshold,
+            },
+          );
+        }
+        await this.SessionModel.deleteMany({ chatId: msg.chat.id });
+        await this.aegisAgentbot.sendMessage(
+          msg.chat.id,
+          `Threshold succesfully set\n- Upper :${threshold.upperThreshold}%\n- Lower : ${threshold.lowerThreshold} %`,
+        );
+      }
+
+      if (session) {
+        // update users answerId
+        await this.SessionModel.updateOne(
+          { _id: session._id },
+          { $push: { userInputId: msg.message_id } },
+        );
+      }
 
       // parse incoming message and handle commands
       try {
@@ -373,60 +400,83 @@ export class AegisBotService {
     console.log(msg);
     await this.aegisAgentbot.sendChatAction(user.chatId, 'typing');
     try {
-      // const regex2 = /^0x[a-fA-F0-9]{64}$/;
-      // const regex = /^Swap (?:also )?(\d+\.?\d*) (\w+) (?:to|for) (\w+)$/i;
-      // const match = msg.trim().match(regex);
-      // const match2 = msg.trim().match(regex2);
-      // if (match) {
-      //   await this.aegisAgentbot.sendChatAction(user.chatId, 'typing');
-      //   const encryptedWallet = await this.walletService.decryptEvmWallet(
-      //     `${process.env.DEFAULT_WALLET_PIN}`,
-      //     user.walletDetails,
-      //   );
-      //   console.log(encryptedWallet);
-      //   if (encryptedWallet.privateKey) {
-      //     const response = await this.aegisAgentService.swapToken(
-      //       encryptedWallet.privateKey,
-      //       msg,
-      //     );
-      //     if (response) {
-      //       const regex = /0x[a-fA-F0-9]{64}/g;
-      //       const matches = response.match(regex);
-      //       return await this.aegisAgentbot.sendMessage(
-      //         user.chatId,
-      //         `${response}.\n${matches[0] ? `View on mantlescan [${matches[0]}](https://mantlescan.xyz/tx/${matches[0]})` : ''}`,
-      //         {
-      //           parse_mode: 'Markdown',
-      //         },
-      //       );
-      //     }
-      //   }
-      // } else if (match2) {
-      //   const tokenInsight = await this.aegisAgentService.analyzeToken(
-      //     msg.trim(),
-      //   );
-      //   if (tokenInsight.insight) {
-      //     await this.aegisAgentbot.sendMessage(
-      //       user.chatId,
-      //       `${tokenInsight.insight}`,
-      //       { parse_mode: 'Markdown' },
-      //     );
-      //     await this.SessionModel.deleteMany({ chatId: user.chatId });
-      //     return;
-      //   }
-      // } else if (!match2 && !match) {
-      //   const response = await this.aegisAgentService.agentChat(msg);
-      //   if (response.response) {
-      //     return await this.aegisAgentbot.sendMessage(
-      //       user.chatId,
-      //       response.response,
-      //       {
-      //         parse_mode: 'Markdown',
-      //       },
-      //     );
-      //   }
-      //   return;
-      // }
+      const regex2 = /^0x[a-fA-F0-9]{64}$/;
+      const regex = /^Swap (?:also )?(\d+\.?\d*) (\w+) (?:to|for) (\w+)$/i;
+      const swapRegex = /\b(swap)\b/i;
+      const match = msg.trim().match(regex);
+      const match2 = msg.trim().match(regex2);
+      if (swapRegex.test(msg.trim())) {
+        await this.aegisAgentbot.sendChatAction(user.chatId, 'typing');
+        const encryptedEvmWallet = await this.walletService.decryptEvmWallet(
+          `${process.env.DEFAULT_WALLET_PIN}`,
+          user.evmWalletDetails,
+        );
+        const encryptedSolanaWallet =
+          await this.walletService.decryptSolanaWallet(
+            `${process.env.DEFAULT_WALLET_PIN}`,
+            user.solanaWalletDetails,
+          );
+
+        if (encryptedEvmWallet.privateKey || encryptedSolanaWallet.privateKey) {
+          const response = await this.aegisAgentService.crossSwapToken(
+            {
+              evm: encryptedEvmWallet.privateKey,
+              solana: encryptedSolanaWallet.privateKey,
+            },
+            msg,
+          );
+          console.log('response :', response);
+        }
+      } else if (match) {
+        await this.aegisAgentbot.sendChatAction(user.chatId, 'typing');
+        const encryptedWallet = await this.walletService.decryptEvmWallet(
+          `${process.env.DEFAULT_WALLET_PIN}`,
+          user.evmWalletDetails,
+        );
+        console.log(encryptedWallet);
+        if (encryptedWallet.privateKey) {
+          const response = await this.aegisAgentService.swapToken(
+            encryptedWallet.privateKey,
+            msg,
+          );
+          if (response) {
+            const regex = /0x[a-fA-F0-9]{64}/g;
+            const matches = response.match(regex);
+            return await this.aegisAgentbot.sendMessage(
+              user.chatId,
+              `${response}.\n${matches[0] ? `View on mantlescan [${matches[0]}](https://mantlescan.xyz/tx/${matches[0]})` : ''}`,
+              {
+                parse_mode: 'Markdown',
+              },
+            );
+          }
+        }
+      } else if (match2) {
+        const tokenInsight = await this.aegisAgentService.analyzeToken(
+          msg.trim(),
+        );
+        if (tokenInsight.insight) {
+          await this.aegisAgentbot.sendMessage(
+            user.chatId,
+            `${tokenInsight.insight}`,
+            { parse_mode: 'Markdown' },
+          );
+          await this.SessionModel.deleteMany({ chatId: user.chatId });
+          return;
+        }
+      } else if (!match2 && !match) {
+        const response = await this.aegisAgentService.agentChat(msg);
+        if (response.response) {
+          return await this.aegisAgentbot.sendMessage(
+            user.chatId,
+            response.response,
+            {
+              parse_mode: 'Markdown',
+            },
+          );
+        }
+        return;
+      }
     } catch (error) {
       console.log(error);
     }
