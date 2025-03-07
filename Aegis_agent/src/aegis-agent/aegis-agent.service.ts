@@ -281,7 +281,7 @@ export class AegisAgentService {
     // Mapping chain names to RPC URLs
     const chainToProvider: Record<ChainName, string> = {
       solana: "https://api.mainnet-beta.solana.com",
-      ethereum: "https://eth-mainnet.g.alchemy.com/v2/YOUR_ALCHEMY_KEY",
+      ethereum: "https://eth-mainnet.g.alchemy.com/v2/6vymiRot3yVb5FSi-GQVBKYD3wQmPq5k",
       bsc: "https://bsc-dataseed.bnbchain.org",
       polygon: "https://polygon-rpc.com",
       avalanche: "https://api.avax.network/ext/bc/C/rpc",
