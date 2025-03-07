@@ -3,13 +3,16 @@ import { AegisAgentService } from './aegis-agent.service';
 
 @Controller('aegis-agent')
 export class AegisAgentController {
-  constructor(private readonly aegisService: AegisAgentService) { }
+  constructor(private readonly aegisService: AegisAgentService) {}
 
   @Post()
   quote(@Body() payload: { prompt: string }) {
     const privateKeySolana = ''; // add privateKey here
     const privateKeyEVM = ''; // add privateKey here
-    return this.aegisService.crossSwapToken({ evm: privateKeyEVM, solana: privateKeySolana }, payload.prompt);
+    return this.aegisService.crossSwapToken(
+      { evm: privateKeyEVM, solana: privateKeySolana },
+      payload.prompt,
+    );
   }
 
   @Post('sentiment')

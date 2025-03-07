@@ -1,12 +1,12 @@
-export const showBalanceMarkup = async (
-  mntBalance: number,
-  usdcBalance: number,
-  usdtBalance: number,
-  wmntBalance: number,
-  moeBalance: number,
-) => {
+export const showBalanceMarkup = async (tokens: any) => {
+  let message = `<b>Wallet Balance:</b>\n\n`;
+
+  for (const token of tokens) {
+    message += `➤ ${token.balance} <b>${token.name}</b> (${token.network})\n`;
+  }
+
   return {
-    message: `<b>Wallet Balance:</b>:\n\n➤ ${mntBalance} <b>MNT</b>\n➤ ${usdcBalance} <b>USDC</b>\n➤ ${usdtBalance} <b>USDT</b>\n➤ ${wmntBalance} <b>WMNT</b>\n➤ ${moeBalance} <b>MOE</b>`,
+    message,
     keyboard: [
       [
         {

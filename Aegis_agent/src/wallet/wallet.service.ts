@@ -1,8 +1,21 @@
 import { Injectable } from '@nestjs/common';
 import * as multichainWallet from 'multichain-crypto-wallet';
+import {
+  createCipheriv,
+  createDecipheriv,
+  createHash,
+  randomBytes,
+} from 'crypto';
 import * as dotenv from 'dotenv';
 
 dotenv.config();
+
+const ALGORITHM = 'aes-256-cbc';
+const IV_LENGTH = 16;
+
+function generateKey(password: string): Buffer {
+  return createHash('sha256').update(password).digest();
+}
 
 const RPC_URL =
   process.env.ENVIRONMENT === 'TESTNET'
@@ -22,28 +35,61 @@ const DAI_ADDRESS =
 @Injectable()
 export class WalletService {
   // create wallet
-  createWallet = (): Record<string, string> => {
-    const wallet = multichainWallet.createWallet({ network: 'ethereum' });
+  createEvmWallet = (): Record<string, any> => {
+    const wallet = multichainWallet.createWallet({
+      network: 'ethereum',
+    });
+
     return wallet;
   };
 
-  getWalletFromMnemonic = (mnemonic: string): Record<string, string> => {
+  createSolanaWallet = (): Record<string, any> => {
+    const wallet = multichainWallet.createWallet({
+      network: 'solana',
+    });
+    return wallet;
+  };
+
+  getEvmWalletFromMnemonic = (mnemonic: string): Record<string, any> => {
     const wallet = multichainWallet.generateWalletFromMnemonic({
       mnemonic,
       network: 'ethereum',
     });
+
     return wallet;
   };
 
-  getAddressFromPrivateKey = (privateKey: string): Record<string, string> => {
-    const wallet = multichainWallet.getAddressFromPrivateKey({
-      privateKey,
-      network: 'ethereum',
+  getSolanaWalletFromMnemonic = (mnemonic: string): Record<string, any> => {
+    const wallet = multichainWallet.generateWalletFromMnemonic({
+      mnemonic,
+      network: 'solana',
     });
     return wallet;
   };
 
-  encryptWallet = async (
+  getEvmAddressFromPrivateKey = (
+    privateKey: string,
+  ): Record<string, string> => {
+    const wallet = multichainWallet.getAddressFromPrivateKey({
+      privateKey,
+      network: 'ethereum',
+    });
+
+    return wallet;
+  };
+
+  getSolanaAddressFromPrivateKey = (
+    privateKey: string,
+  ): Record<string, string> => {
+    const wallet = multichainWallet.getAddressFromPrivateKey({
+      privateKey,
+      network: 'solana',
+    });
+
+    return wallet;
+  };
+
+  encryptEvmWallet = async (
     password: string,
     privateKey: string,
   ): Promise<Record<string, string>> => {
@@ -55,7 +101,22 @@ export class WalletService {
     return encrypted;
   };
 
-  decryptWallet = async (
+  encryptSolanaWallet = async (
+    password: string,
+    privateKey: string,
+  ): Promise<Record<string, string>> => {
+    const key = generateKey(password);
+    const iv = randomBytes(IV_LENGTH);
+    const cipher = createCipheriv(ALGORITHM, key, iv);
+
+    let encrypted = cipher.update(privateKey, 'utf8', 'hex');
+    encrypted += cipher.final('hex');
+
+    const encryptedWallet = iv.toString('hex') + ':' + encrypted;
+    return { json: encryptedWallet };
+  };
+
+  decryptEvmWallet = async (
     password: string,
     encryptedWallet: string,
   ): Promise<Record<string, string>> => {
@@ -67,11 +128,45 @@ export class WalletService {
     return decrypted;
   };
 
-  getEthBalance = async (address: string): Promise<Record<string, number>> => {
+  decryptSolanaWallet = async (
+    password: string,
+    encryptedWallet: string,
+  ): Promise<Record<string, any>> => {
+    const key = generateKey(password);
+    const [ivHex, encrypted] = encryptedWallet.split(':');
+    const iv = Buffer.from(ivHex, 'hex');
+
+    const decipher = createDecipheriv(ALGORITHM, key, iv);
+    let decrypted = decipher.update(encrypted, 'hex', 'utf8');
+    decrypted += decipher.final('utf8');
+
+    return {
+      privateKey: decrypted,
+      address: this.getSolanaAddressFromPrivateKey(decrypted).address,
+    };
+    // return {
+    //   privateKey: '0x' + decryptedPrivateKey.toString('hex'), // Convert to Ethereum format
+    //   address: '0x' + keystore.address, // Return the original address
+    // };
+  };
+
+  getNativeTokenBalance = async (
+    address: string,
+    rpc: string,
+  ): Promise<Record<string, number>> => {
     const balance = await multichainWallet.getBalance({
       address,
       network: 'ethereum',
-      rpcUrl: `${RPC_URL}`,
+      rpcUrl: rpc,
+    });
+    return balance;
+  };
+
+  getSolBalance = async (address: string): Promise<Record<string, number>> => {
+    const balance = await multichainWallet.getBalance({
+      address,
+      network: 'solana',
+      rpcUrl: `${process.env.SOLANA_RPC}`,
     });
     return balance;
   };
@@ -79,11 +174,25 @@ export class WalletService {
   getERC20Balance = async (
     address: string,
     tokenAddress: string,
+    rpc: string,
   ): Promise<Record<string, number>> => {
     const balance = await multichainWallet.getBalance({
       address,
       network: 'ethereum',
-      rpcUrl: `${RPC_URL}`,
+      rpcUrl: rpc,
+      tokenAddress: tokenAddress,
+    });
+    return balance;
+  };
+
+  getSPLTokenBalance = async (
+    address: string,
+    tokenAddress: string,
+  ): Promise<Record<string, number>> => {
+    const balance = await multichainWallet.getBalance({
+      address,
+      network: 'solana',
+      rpcUrl: `${process.env.SOLANA_RPC}`,
       tokenAddress: tokenAddress,
     });
     return balance;
@@ -148,12 +257,24 @@ export class WalletService {
     return transer;
   };
 
-  getTransactionReceipt = async (
+  getEvmTransactionReceipt = async (
     hash: string,
   ): Promise<Record<any, unknown>> => {
     const receipt = await multichainWallet.getTransaction({
       hash,
       network: 'ethereum',
+      rpcUrl: `${RPC_URL}`,
+    });
+
+    return receipt;
+  };
+
+  getSolanaTransactionReceipt = async (
+    hash: string,
+  ): Promise<Record<any, unknown>> => {
+    const receipt = await multichainWallet.getTransaction({
+      hash,
+      network: 'solana',
       rpcUrl: `${RPC_URL}`,
     });
 

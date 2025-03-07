@@ -373,20 +373,20 @@ export class AegisAgentService {
     //   chain: base,
     //   transport: http('https://rpc.network'),
     // });
-    const provider = new ethers.JsonRpcProvider('https://mainnet.base.org');
+    // const provider = new ethers.JsonRpcProvider('https://mainnet.base.org');
 
     // const signer = createWalletClient({
     //   chain: mainnet,
     //   transport: http('https://rpc.network'),
     //   account: account,
     // });
-    const signer = new ethers.Wallet(pK, provider);
+    // const signer = new ethers.Wallet(pK, provider);
 
     try {
       const quotes = await fetchQuote({
         amount: 10,
-        fromToken: '0x833589fcd6edb6e08f4c7c32d4f71b54bda02913',
-        toToken: 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v',
+        fromToken: '0x0000000000000000000000000000000000000000',
+        toToken: '0x0000000000000000000000000000000000000000',
         fromChain: 'base',
         toChain: 'solana',
         slippageBps: 300, // means 3%
@@ -408,16 +408,23 @@ export class AegisAgentService {
       //   permit,
       // );
       // const amount = ethers.parseUnits('10', 18);
+
       // const tokenContract = new ethers.Contract(
       //   '0x833589fcd6edb6e08f4c7c32d4f71b54bda02913',
       //   ERC20_ABI,
       //   signer,
       // );
 
+      // const checkAllowance = await tokenContract.allowance(
+      //   signer.getAddress(),
+      //   addresses.MAYAN_FORWARDER_CONTRACT,
+      // );
+
       // const approvalTx = await tokenContract.approve(
       //   addresses.MAYAN_FORWARDER_CONTRACT,
       //   amount,
       // );
+
       // await approvalTx.wait();
       // console.log('approval sent:', approvalTx.hash);
 

@@ -1,52 +1,92 @@
-import * as dotenv from 'dotenv';
-dotenv.config();
+export const walletDetailsMarkup = async (
+  evmAddress?: string,
+  solanaAddress?: string,
+) => {
+  console.log(evmAddress);
+  const keyboard: any[] = [];
 
-export const wallerDetailsMarkup = async (address: any) => {
-  const MANTLE_SCAN_URL =
-    process.env.ENVIRONMENT === 'TESTNET'
-      ? process.env.MANTLE_SCAN_URL_TESTNET
-      : process.env.MANTLE_SCAN_URL;
-  return {
-    message: `<b>Your Wallet:</b>\n\n<b>Address:</b> <code>${address}</code>\n\n Tap to copy the address and send MNT, USDC , USDT OR MOE The to deposit.`,
-    keyboard: [
+  if (evmAddress) {
+    keyboard.push(
       [
         {
-          text: '🔎 View on mantlescan',
-          url: `${MANTLE_SCAN_URL}/address/${address}`,
-        },
-        {
-          text: 'check Balance',
-          callback_data: JSON.stringify({
-            command: '/checkBalance',
-            language: 'english',
-          }),
+          text: '🔎 View on etherscan',
+          url: `${process.env.ETHERSCAN_URL}/address/${evmAddress}`,
         },
       ],
       [
         {
-          text: 'Export wallet',
-          callback_data: JSON.stringify({
-            command: '/exportWallet',
-            language: 'english',
-          }),
-        },
-        {
-          text: 'Reset wallet',
-          callback_data: JSON.stringify({
-            command: '/resetWallet',
-            language: 'english',
-          }),
+          text: '🔎 View on basescan',
+          url: `${process.env.BASESCAN_URL}/address/${evmAddress}`,
         },
       ],
       [
         {
-          text: 'Close ❌',
-          callback_data: JSON.stringify({
-            command: '/close',
-            language: 'english',
-          }),
+          text: '🔎 View on arbiscan',
+          url: `${process.env.ABI_SCAN_URL}/address/${evmAddress}`,
         },
       ],
+      [
+        {
+          text: '🔎 View on OP scan',
+          url: `${process.env.OP_SCAN_URL}/address/${evmAddress}`,
+        },
+      ],
+      [
+        {
+          text: '🔎 View on polygonscan',
+          url: `${process.env.POLY_SCAN_URL}/address/${evmAddress}`,
+        },
+      ],
+      [
+        {
+          text: '🔎 View on avalanche snowscan',
+          url: `${process.env.SNOW_SCAN_URL}/address/${evmAddress}`,
+        },
+      ],
+    );
+  }
+
+  if (solanaAddress) {
+    keyboard.push([
+      {
+        text: '🔎 View on solscan',
+        url: `${process.env.SOLSCAN_URL}/address/${solanaAddress}`,
+      },
+    ]);
+  }
+
+  keyboard.push(
+    [
+      {
+        text: 'Export wallet',
+        callback_data: JSON.stringify({
+          command: '/exportWallet',
+          language: 'english',
+        }),
+      },
+      {
+        text: 'Reset wallet',
+        callback_data: JSON.stringify({
+          command: '/resetWallet',
+          language: 'english',
+        }),
+      },
     ],
+    [
+      {
+        text: 'Close ❌',
+        callback_data: JSON.stringify({
+          command: '/close',
+          language: 'english',
+        }),
+      },
+    ],
+  );
+  console.log(keyboard);
+  return {
+    message: `\u2003\u2003\u2003\u2003\u2003\u2003\u2003<b>Your Wallet</b>\n\n${
+      evmAddress ? `<b>EVM Address:</b> <code>${evmAddress}</code>\n\n` : ''
+    }${solanaAddress ? `<b>Solana Address:</b> <code>${solanaAddress}</code>\n` : ''}\nTap to copy the address and send tokens to deposit.`,
+    keyboard,
   };
 };
