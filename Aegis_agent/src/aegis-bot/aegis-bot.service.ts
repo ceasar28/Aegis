@@ -143,7 +143,7 @@ export class AegisBotService {
       if (match) {
         const user = await this.UserModel.findOne({ chatId: msg.chat.id });
         await this.aegisAgentbot.sendChatAction(user.chatId, 'typing');
-        const encryptedWallet = await this.walletService.decryptWallet(
+        const encryptedWallet = await this.walletService.decryptEvmWallet(
           `${process.env.DEFAULT_WALLET_PIN}`,
           user.walletDetails,
         );
@@ -246,14 +246,13 @@ export class AegisBotService {
           if (await this.isPrivateKey(msg.text!.trim(), msg.chat.id)) {
             const privateKey = msg.text!.trim();
             console.log(privateKey);
-            const importedWallet = this.walletService.getAddressFromPrivateKey(
-              `${privateKey}`,
-            );
+            const importedWallet =
+              this.walletService.getEvmAddressFromPrivateKey(`${privateKey}`);
             console.log(importedWallet);
 
             // encrypt wallet details with  default
             const encryptedWalletDetails =
-              await this.walletService.encryptWallet(
+              await this.walletService.encryptEvmWallet(
                 process.env.DEFAULT_WALLET_PIN!,
                 privateKey,
               );
@@ -322,7 +321,7 @@ export class AegisBotService {
       const match2 = msg.trim().match(regex2);
       if (match) {
         await this.aegisAgentbot.sendChatAction(user.chatId, 'typing');
-        const encryptedWallet = await this.walletService.decryptWallet(
+        const encryptedWallet = await this.walletService.decryptEvmWallet(
           `${process.env.DEFAULT_WALLET_PIN}`,
           user.walletDetails,
         );
@@ -380,7 +379,7 @@ export class AegisBotService {
     console.log('rebalancing');
     await this.aegisAgentbot.sendChatAction(user.chatId, 'typing');
     try {
-      const encryptedWallet = await this.walletService.decryptWallet(
+      const encryptedWallet = await this.walletService.decryptEvmWallet(
         `${process.env.DEFAULT_WALLET_PIN}`,
         user.walletDetails,
       );
@@ -469,9 +468,9 @@ export class AegisBotService {
           if (user!.walletAddress) {
             return this.sendWalletDetails(chatId, user!.walletAddress);
           }
-          const newWallet = await this.walletService.createWallet();
+          const newWallet = await this.walletService.createEvmWallet();
           const [encryptedWalletDetails] = await Promise.all([
-            this.walletService.encryptWallet(
+            this.walletService.encryptEvmWallet(
               process.env.DEFAULT_WALLET_PIN!,
               newWallet.privateKey,
             ),
@@ -565,7 +564,7 @@ export class AegisBotService {
             exportWallet: true,
           });
           if (session && user!.walletDetails) {
-            const decryptedWallet = await this.walletService.decryptWallet(
+            const decryptedWallet = await this.walletService.decryptEvmWallet(
               process.env.DEFAULT_WALLET_PIN!,
               user!.walletDetails,
             );

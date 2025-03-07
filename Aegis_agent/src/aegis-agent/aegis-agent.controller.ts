@@ -8,7 +8,7 @@ export class AegisAgentController {
   @Get()
   quote() {
     const privateKey = ''; // add privateKey here
-    return this.aegisService.crossSwapToken(privateKey);
+    return this.aegisService.crossSwapToken(privateKey, 'test');
   }
 
   @Post('sentiment')

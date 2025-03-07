@@ -1,16 +1,21 @@
 import { Injectable } from '@nestjs/common';
 import * as multichainWallet from 'multichain-crypto-wallet';
 import {
-  randomBytes,
-  scryptSync,
   createCipheriv,
-  createHmac,
   createDecipheriv,
+  createHash,
+  randomBytes,
 } from 'crypto';
-import { v4 as uuidv4 } from 'uuid';
 import * as dotenv from 'dotenv';
 
 dotenv.config();
+
+const ALGORITHM = 'aes-256-cbc';
+const IV_LENGTH = 16;
+
+function generateKey(password: string): Buffer {
+  return createHash('sha256').update(password).digest();
+}
 
 const RPC_URL =
   process.env.ENVIRONMENT === 'TESTNET'
@@ -100,48 +105,15 @@ export class WalletService {
     password: string,
     privateKey: string,
   ): Promise<Record<string, string>> => {
-    const salt = randomBytes(32); // random salt
-    const iv = randomBytes(16); // random IV
+    const key = generateKey(password);
+    const iv = randomBytes(IV_LENGTH);
+    const cipher = createCipheriv(ALGORITHM, key, iv);
 
-    // Derive encryption key using Scrypt (Ethereum keystore standard)
-    const key = scryptSync(password, salt, 32, { N: 131072, r: 8, p: 1 });
+    let encrypted = cipher.update(privateKey, 'utf8', 'hex');
+    encrypted += cipher.final('hex');
 
-    // Encrypt private key using AES-128-CTR
-    const cipher = createCipheriv('aes-128-ctr', key.slice(0, 16), iv);
-    const encryptedPrivateKey = Buffer.concat([
-      cipher.update(privateKey),
-      cipher.final(),
-    ]);
-
-    // Generate MAC (message authentication code)
-    const mac = createHmac('sha256', key.slice(16))
-      .update(encryptedPrivateKey)
-      .digest();
-
-    // Create Ethereum-style keystore JSON
-    const keystoreJson = {
-      address: Buffer.from(privateKey).toString('hex').slice(0, 40), // Fake address (Solana doesn't use Ethereum format)
-      id: uuidv4(),
-      version: 3,
-      Crypto: {
-        cipher: 'aes-128-ctr',
-        cipherparams: {
-          iv: iv.toString('hex'),
-        },
-        ciphertext: encryptedPrivateKey.toString('hex'),
-        kdf: 'scrypt',
-        kdfparams: {
-          salt: salt.toString('hex'),
-          n: 131072,
-          dklen: 32,
-          p: 1,
-          r: 8,
-        },
-        mac: mac.toString('hex'),
-      },
-    };
-
-    return { json: JSON.stringify(keystoreJson) };
+    const encryptedWallet = iv.toString('hex') + ':' + encrypted;
+    return { json: encryptedWallet };
   };
 
   decryptEvmWallet = async (
@@ -159,43 +131,23 @@ export class WalletService {
   decryptSolanaWallet = async (
     password: string,
     encryptedWallet: string,
-  ): Promise<Record<string, string>> => {
-    const keystore = JSON.parse(encryptedWallet);
-    const { salt, iv } = keystore.Crypto.kdfparams;
-    const ciphertext = keystore.Crypto.ciphertext;
-    const mac = keystore.Crypto.mac;
+  ): Promise<Record<string, any>> => {
+    const key = generateKey(password);
+    const [ivHex, encrypted] = encryptedWallet.split(':');
+    const iv = Buffer.from(ivHex, 'hex');
 
-    // Derive encryption key using Scrypt (Ethereum keystore standard)
-    const key = scryptSync(password, Buffer.from(salt, 'hex'), 32, {
-      N: 131072,
-      r: 8,
-      p: 1,
-    });
-
-    // Verify MAC (HMAC of encrypted data) to ensure data integrity
-    const computedMac = createHmac('sha256', key.slice(16))
-      .update(Buffer.from(ciphertext, 'hex'))
-      .digest('hex');
-
-    if (computedMac !== mac) {
-      throw new Error('Invalid password or corrupted keystore');
-    }
-
-    // Decrypt private key using AES-128-CTR
-    const decipher = createDecipheriv(
-      'aes-128-ctr',
-      key.slice(0, 16),
-      Buffer.from(iv, 'hex'),
-    );
-    const decryptedPrivateKey = Buffer.concat([
-      decipher.update(Buffer.from(ciphertext, 'hex')),
-      decipher.final(),
-    ]);
+    const decipher = createDecipheriv(ALGORITHM, key, iv);
+    let decrypted = decipher.update(encrypted, 'hex', 'utf8');
+    decrypted += decipher.final('utf8');
 
     return {
-      privateKey: '0x' + decryptedPrivateKey.toString('hex'), // Convert to Ethereum format
-      address: '0x' + keystore.address, // Return the original address
+      privateKey: decrypted,
+      address: this.getSolanaAddressFromPrivateKey(decrypted).address,
     };
+    // return {
+    //   privateKey: '0x' + decryptedPrivateKey.toString('hex'), // Convert to Ethereum format
+    //   address: '0x' + keystore.address, // Return the original address
+    // };
   };
 
   getEthBalance = async (address: string): Promise<Record<string, number>> => {
