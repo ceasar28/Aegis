@@ -2,6 +2,7 @@ export const walletDetailsMarkup = async (
   evmAddress?: string,
   solanaAddress?: string,
 ) => {
+  console.log(evmAddress);
   const keyboard: any[] = [];
 
   if (evmAddress) {
@@ -81,10 +82,10 @@ export const walletDetailsMarkup = async (
       },
     ],
   );
-
+  console.log(keyboard);
   return {
-    message: `<b>Your Wallet:</b>\n\n${
-      evmAddress ? `<b>EVM Address:</b> <code>${evmAddress}</code>\n` : ''
+    message: `\u2003\u2003\u2003\u2003\u2003\u2003\u2003<b>Your Wallet</b>\n\n${
+      evmAddress ? `<b>EVM Address:</b> <code>${evmAddress}</code>\n\n` : ''
     }${solanaAddress ? `<b>Solana Address:</b> <code>${solanaAddress}</code>\n` : ''}\nTap to copy the address and send tokens to deposit.`,
     keyboard,
   };

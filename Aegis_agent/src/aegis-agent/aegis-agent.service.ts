@@ -96,14 +96,14 @@ export class AegisAgentService {
     //   chain: base,
     //   transport: http('https://rpc.network'),
     // });
-    const provider = new ethers.JsonRpcProvider('https://mainnet.base.org');
+    // const provider = new ethers.JsonRpcProvider('https://mainnet.base.org');
 
     // const signer = createWalletClient({
     //   chain: mainnet,
     //   transport: http('https://rpc.network'),
     //   account: account,
     // });
-    const signer = new ethers.Wallet(pK, provider);
+    // const signer = new ethers.Wallet(pK, provider);
 
     try {
       const quotes = await fetchQuote({

@@ -150,11 +150,14 @@ export class WalletService {
     // };
   };
 
-  getEthBalance = async (address: string): Promise<Record<string, number>> => {
+  getNativeTokenBalance = async (
+    address: string,
+    rpc: string,
+  ): Promise<Record<string, number>> => {
     const balance = await multichainWallet.getBalance({
       address,
       network: 'ethereum',
-      rpcUrl: `${RPC_URL}`,
+      rpcUrl: rpc,
     });
     return balance;
   };
@@ -163,7 +166,7 @@ export class WalletService {
     const balance = await multichainWallet.getBalance({
       address,
       network: 'solana',
-      rpcUrl: `${RPC_URL}`,
+      rpcUrl: `${process.env.SOLANA_RPC}`,
     });
     return balance;
   };
@@ -171,11 +174,12 @@ export class WalletService {
   getERC20Balance = async (
     address: string,
     tokenAddress: string,
+    rpc: string,
   ): Promise<Record<string, number>> => {
     const balance = await multichainWallet.getBalance({
       address,
       network: 'ethereum',
-      rpcUrl: `${RPC_URL}`,
+      rpcUrl: rpc,
       tokenAddress: tokenAddress,
     });
     return balance;
@@ -188,7 +192,7 @@ export class WalletService {
     const balance = await multichainWallet.getBalance({
       address,
       network: 'solana',
-      rpcUrl: `${RPC_URL}`,
+      rpcUrl: `${process.env.SOLANA_RPC}`,
       tokenAddress: tokenAddress,
     });
     return balance;

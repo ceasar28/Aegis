@@ -20,14 +20,15 @@ import { WalletService } from 'src/wallet/wallet.service';
 import { Session, SessionDocument } from 'src/database/schemas/session.schema';
 import { AegisAgentService } from 'src/aegis-agent/aegis-agent.service';
 import { Cron } from '@nestjs/schedule';
+import { fetchAllTokenList } from '@mayanfinance/swap-sdk';
 
 const token = process.env.TELEGRAM_TOKEN;
 
-const USDT_ADDRESS_MANTLE = process.env.USDT_ADDRESS_MANTLE;
-const USDC_ADDRESS_MANTLE = process.env.USDC_ADDRESS_MANTLE;
-const WMNT_ADDRESS = process.env.WMNT_ADDRESS;
-// const MNT_ADDRESS = process.env.MNT_ADDRESS;
-const MOE_ADDRESS = process.env.MOE_ADDRESS;
+// const USDT_ADDRESS_MANTLE = process.env.USDT_ADDRESS_MANTLE;
+// const USDC_ADDRESS_MANTLE = process.env.USDC_ADDRESS_MANTLE;
+// const WMNT_ADDRESS = process.env.WMNT_ADDRESS;
+// // const MNT_ADDRESS = process.env.MNT_ADDRESS;
+// const MOE_ADDRESS = process.env.MOE_ADDRESS;
 
 @Injectable()
 export class AegisBotService {
@@ -544,7 +545,7 @@ export class AegisBotService {
             { chatId: chatId },
             {
               evmWalletDetails: encryptedEvmWalletDetails.json,
-              walletAddress: newEvmWallet.address,
+              evmWalletAddress: newEvmWallet.address,
               solanaWalletDetails: encryptedSolanaWalletDetails.json,
               solanaWalletAddress: newSolanaWallet.address,
             },
@@ -843,7 +844,7 @@ export class AegisBotService {
     await this.aegisAgentbot.sendChatAction(ChatId, 'typing');
     try {
       const walletDetails = await walletDetailsMarkup(
-        user.evmWalletDetails,
+        user.evmWalletAddress,
         user.solanaWalletAddress,
       );
       if (walletDetailsMarkup!) {
@@ -901,38 +902,82 @@ export class AegisBotService {
           `You don't have any wallet connected`,
         );
       }
+      const allTokens = await fetchAllTokenList(['native', 'erc20', 'spl']);
 
-      const mntBalance = await this.walletService.getEthBalance(
-        user!.walletAddress,
-      );
+      const splTokens = (
+        await Promise.all(
+          allTokens['solana'].map(async (token) => {
+            if (token.mint === 'So11111111111111111111111111111111111111112') {
+              const { balance } = await this.walletService.getSolBalance(
+                user!.solanaWalletAddress,
+              );
 
-      const usdcMantleBalance = await this.walletService.getERC20Balance(
-        user!.walletAddress,
-        USDC_ADDRESS_MANTLE,
-      );
+              return {
+                name: token.symbol,
+                balance,
+                network: 'solana',
+                address: token.mint,
+              };
+            } else {
+              const { balance } = await this.walletService.getSPLTokenBalance(
+                user!.solanaWalletAddress,
+                token.mint,
+              );
 
-      const usdtMantleBalance = await this.walletService.getERC20Balance(
-        user!.walletAddress,
-        USDT_ADDRESS_MANTLE,
-      );
+              if (balance > 0) {
+                return {
+                  name: token.symbol,
+                  balance,
+                  network: 'solana',
+                  address: token.mint,
+                };
+              }
+            }
+          }),
+        )
+      ).filter(Boolean);
 
-      const wmntBalance = await this.walletService.getERC20Balance(
-        user!.walletAddress,
-        WMNT_ADDRESS,
-      );
+      const ethereumTokens = (
+        await Promise.all(
+          allTokens['ethereum'].map(async (token) => {
+            if (
+              token.contract === '0x0000000000000000000000000000000000000000'
+            ) {
+              const { balance } =
+                await this.walletService.getNativeTokenBalance(
+                  user!.evmWalletAddress,
+                  process.env.ETHEREUM_RPC,
+                );
+              console.log(balance);
+              return {
+                name: token.symbol,
+                balance,
+                network: 'ethereum',
+                address: token.contract,
+              };
+            } else {
+              const { balance } = await this.walletService.getERC20Balance(
+                user!.evmWalletAddress,
+                token.contract,
+                process.env.ETHEREUM_RPC,
+              );
 
-      const moeBalance = await this.walletService.getERC20Balance(
-        user!.walletAddress,
-        MOE_ADDRESS,
-      );
+              if (balance > 0) {
+                return {
+                  name: token.symbol,
+                  balance,
+                  network: 'ethereum',
+                  address: token.contract,
+                };
+              }
+            }
+          }),
+        )
+      ).filter(Boolean);
 
-      const showBalance = await showBalanceMarkup(
-        mntBalance.balance,
-        usdcMantleBalance.balance,
-        usdtMantleBalance.balance,
-        wmntBalance.balance,
-        moeBalance.balance,
-      );
+      const allTokenBalance = [...ethereumTokens, ...splTokens];
+
+      const showBalance = await showBalanceMarkup(allTokenBalance);
       if (showBalance) {
         const replyMarkup = { inline_keyboard: showBalance.keyboard };
 
@@ -1197,146 +1242,139 @@ export class AegisBotService {
   };
 
   getPortfolio = async (linkCode: string) => {
+    console.log(linkCode);
     try {
-      const user = await this.UserModel.findOne({ linkCode });
-      if (!user?.walletAddress) {
-        return { message: ` you don't have a wallet connected on the bot` };
-      }
-
-      const mntBalance = await this.walletService.getEthBalance(
-        user!.walletAddress,
-      );
-
-      const usdcBalance = await this.walletService.getERC20Balance(
-        user!.walletAddress,
-        USDC_ADDRESS_MANTLE,
-      );
-
-      const usdtBalance = await this.walletService.getERC20Balance(
-        user!.walletAddress,
-        USDT_ADDRESS_MANTLE,
-      );
-
-      const moeBalance = await this.walletService.getERC20Balance(
-        user!.walletAddress,
-        MOE_ADDRESS,
-      );
-
-      const geckoUrl = `https://api.geckoterminal.com/api/v2/networks/mantle/tokens`;
-
-      const urls = [
-        `${geckoUrl}/0x78c1b0C915c4FAA5FffA6CAbf0219DA63d7f4cb8`,
-        `${geckoUrl}/0x09Bc4E0D864854c6aFB6eB9A9cdF58aC190D0dF9`,
-        `${geckoUrl}/0x201eba5cc46d216ce6dc03f6a759e8e766e956ae`,
-        `${geckoUrl}/0x4515A45337F461A11Ff0FE8aBF3c606AE5dC00c9`,
-      ];
-
-      const [mntData, usdcData, usdtData, moeData] = await Promise.all(
-        urls.map((url) =>
-          fetch(url, { method: 'GET' }).then((response) => response.json()),
-        ),
-      );
-      console.log(mntData, usdcData, usdtData, moeData);
-      const mnt = {
-        mntBalance: Number(mntBalance?.balance || 0),
-        price: Number(mntData?.data?.attributes?.price_usd || 0),
-        value:
-          Number(mntBalance?.balance || 0) *
-          Number(mntData?.data?.attributes?.price_usd || 0),
-      };
-      const usdc = {
-        usdcBalance: Number(usdcBalance?.balance || 0),
-        price: Number(usdcData?.data?.attributes.price_usd || 0),
-        value: Number(usdcBalance?.balance || 0),
-      };
-      const usdt = {
-        usdtBalance: Number(usdtBalance?.balance || 0),
-        price: Number(usdtData?.data?.attributes.price_usd || 0),
-        value: Number(usdtBalance?.balance || 0),
-      };
-      const moe = {
-        moeBalance: Number(moeBalance?.balance || 0),
-        price: Number(moeData?.data?.attributes.price_usd || 0),
-        value:
-          Number(moeBalance?.balance || 0) *
-          Number(moeData?.data?.attributes.price_usd || 0),
-      };
-
-      return { mnt, usdc, usdt, moe };
+      // const user = await this.UserModel.findOne({ linkCode });
+      // if (!user?.walletAddress) {
+      //   return { message: ` you don't have a wallet connected on the bot` };
+      // }
+      // const mntBalance = await this.walletService.getEthBalance(
+      //   user!.walletAddress,
+      // );
+      // const usdcBalance = await this.walletService.getERC20Balance(
+      //   user!.walletAddress,
+      //   USDC_ADDRESS_MANTLE,
+      // );
+      // const usdtBalance = await this.walletService.getERC20Balance(
+      //   user!.walletAddress,
+      //   USDT_ADDRESS_MANTLE,
+      // );
+      // const moeBalance = await this.walletService.getERC20Balance(
+      //   user!.walletAddress,
+      //   MOE_ADDRESS,
+      // );
+      // const geckoUrl = `https://api.geckoterminal.com/api/v2/networks/mantle/tokens`;
+      // const urls = [
+      //   `${geckoUrl}/0x78c1b0C915c4FAA5FffA6CAbf0219DA63d7f4cb8`,
+      //   `${geckoUrl}/0x09Bc4E0D864854c6aFB6eB9A9cdF58aC190D0dF9`,
+      //   `${geckoUrl}/0x201eba5cc46d216ce6dc03f6a759e8e766e956ae`,
+      //   `${geckoUrl}/0x4515A45337F461A11Ff0FE8aBF3c606AE5dC00c9`,
+      // ];
+      // const [mntData, usdcData, usdtData, moeData] = await Promise.all(
+      //   urls.map((url) =>
+      //     fetch(url, { method: 'GET' }).then((response) => response.json()),
+      //   ),
+      // );
+      // console.log(mntData, usdcData, usdtData, moeData);
+      // const mnt = {
+      //   mntBalance: Number(mntBalance?.balance || 0),
+      //   price: Number(mntData?.data?.attributes?.price_usd || 0),
+      //   value:
+      //     Number(mntBalance?.balance || 0) *
+      //     Number(mntData?.data?.attributes?.price_usd || 0),
+      // };
+      // const usdc = {
+      //   usdcBalance: Number(usdcBalance?.balance || 0),
+      //   price: Number(usdcData?.data?.attributes.price_usd || 0),
+      //   value: Number(usdcBalance?.balance || 0),
+      // };
+      // const usdt = {
+      //   usdtBalance: Number(usdtBalance?.balance || 0),
+      //   price: Number(usdtData?.data?.attributes.price_usd || 0),
+      //   value: Number(usdtBalance?.balance || 0),
+      // };
+      // const moe = {
+      //   moeBalance: Number(moeBalance?.balance || 0),
+      //   price: Number(moeData?.data?.attributes.price_usd || 0),
+      //   value:
+      //     Number(moeBalance?.balance || 0) *
+      //     Number(moeData?.data?.attributes.price_usd || 0),
+      // };
+      // return { mnt, usdc, usdt, moe };
     } catch (error) {
       console.log(error);
     }
   };
 
-  private rebalancePortfolio = async (user: UserDocument) => {
-    function calculatePercentage(value1, value2) {
-      const total = value1 + value2;
-      if (total === 0) return { percentage1: 0, percentage2: 0 }; // To avoid division by zero
+  // private rebalancePortfolio = async (user: UserDocument) => {
+  //   function calculatePercentage(value1, value2) {
+  //     const total = value1 + value2;
+  //     if (total === 0) return { percentage1: 0, percentage2: 0 }; // To avoid division by zero
 
-      const percentage1 = (value1 / total) * 100;
-      const percentage2 = (value2 / total) * 100;
+  //     const percentage1 = (value1 / total) * 100;
+  //     const percentage2 = (value2 / total) * 100;
 
-      return {
-        percentage1: percentage1.toFixed(2),
-        percentage2: percentage2.toFixed(2),
-      };
-    }
+  //     return {
+  //       percentage1: percentage1.toFixed(2),
+  //       percentage2: percentage2.toFixed(2),
+  //     };
+  //   }
 
-    try {
-      // Destructuring the user object to get thresholds and allocations
-      const { upperThreshold, lowerThreshold, modeAllocation } = user;
+  //   try {
+  //     // Destructuring the user object to get thresholds and allocations
+  //     const { upperThreshold, lowerThreshold, modeAllocation } = user;
 
-      const userPortfolio = await this.getPortfolio(user.linkCode);
+  //     const userPortfolio = await this.getPortfolio(user.linkCode);
 
-      console.log(userPortfolio.moe);
-      const totalPortfoliosize = Number(
-        userPortfolio?.moe?.value + userPortfolio?.usdc?.value,
-      );
-      const portfolioPercentages = calculatePercentage(
-        userPortfolio?.moe?.value,
-        userPortfolio?.usdc?.value,
-      );
-      const modePercentage = Number(portfolioPercentages.percentage1);
+  //     console.log(userPortfolio.moe);
+  //     const totalPortfoliosize = Number(
+  //       userPortfolio?.moe?.value + userPortfolio?.usdc?.value,
+  //     );
+  //     const portfolioPercentages = calculatePercentage(
+  //       userPortfolio?.moe?.value,
+  //       userPortfolio?.usdc?.value,
+  //     );
+  //     const modePercentage = Number(portfolioPercentages.percentage1);
 
-      // Check if rebalancing is needed
-      if (modePercentage > Number(upperThreshold)) {
-        // Calculate how much MOE to sell
-        const modeValueToSell =
-          ((modePercentage - Number(modeAllocation)) / 100) *
-          totalPortfoliosize;
+  //     // Check if rebalancing is needed
+  //     if (modePercentage > Number(upperThreshold)) {
+  //       // Calculate how much MOE to sell
+  //       const modeValueToSell =
+  //         ((modePercentage - Number(modeAllocation)) / 100) *
+  //         totalPortfoliosize;
 
-        const actualModeTokenToSell =
-          Number(modeValueToSell) / Number(userPortfolio?.moe?.price);
-        console.log(
-          `Selling ${actualModeTokenToSell} worth of MOE to rebalance.`,
-        );
+  //       const actualModeTokenToSell =
+  //         Number(modeValueToSell) / Number(userPortfolio?.moe?.price);
+  //       console.log(
+  //         `Selling ${actualModeTokenToSell} worth of MOE to rebalance.`,
+  //       );
 
-        await this.promptAgentToRebalance(
-          user,
-          `Swap ${actualModeTokenToSell} moe to usdc`,
-        );
-      } else if (modePercentage < Number(lowerThreshold)) {
-        // Calculate how much USDC to buy MOE with
-        const usdcToSpend =
-          ((Number(modeAllocation) - modePercentage) / 100) *
-          totalPortfoliosize;
-        console.log(
-          `Buying ${usdcToSpend} worth of MOE to rebalance Portfolio.`,
-        );
+  //       await this.promptAgentToRebalance(
+  //         user,
+  //         `Swap ${actualModeTokenToSell} moe to usdc`,
+  //       );
+  //     } else if (modePercentage < Number(lowerThreshold)) {
+  //       // Calculate how much USDC to buy MOE with
+  //       const usdcToSpend =
+  //         ((Number(modeAllocation) - modePercentage) / 100) *
+  //         totalPortfoliosize;
+  //       console.log(
+  //         `Buying ${usdcToSpend} worth of MOE to rebalance Portfolio.`,
+  //       );
 
-        await this.promptAgentToRebalance(
-          user,
-          `Swap ${usdcToSpend} usdc to moe`,
-        );
-      } else {
-        console.log(
-          'Portfolio is within acceptable balance, no action needed.',
-        );
-      }
-    } catch (error) {
-      console.error('Error during portfolio rebalancing:', error);
-    }
-  };
+  //       await this.promptAgentToRebalance(
+  //         user,
+  //         `Swap ${usdcToSpend} usdc to moe`,
+  //       );
+  //     } else {
+  //       console.log(
+  //         'Portfolio is within acceptable balance, no action needed.',
+  //       );
+  //     }
+  //   } catch (error) {
+  //     console.error('Error during portfolio rebalancing:', error);
+  //   }
+  // };
 
   validateAllocations = async (input: string, chatId: number) => {
     // Match numbers followed by an optional space and %
@@ -1399,17 +1437,17 @@ export class AegisBotService {
   @Cron('*/1 * * * *')
   async handleRebalancing() {
     console.log('running cron');
-    try {
-      const users = await this.UserModel.find();
+    // try {
+    //   const users = await this.UserModel.find();
 
-      for (const user of users) {
-        if (user.rebalanceEnabled) {
-          // Check if rebalancing is turned on
-          await this.rebalancePortfolio(user);
-        }
-      }
-    } catch (error) {
-      console.error('Error fetching users or rebalancing:', error);
-    }
+    //   for (const user of users) {
+    //     if (user.rebalanceEnabled) {
+    //       // Check if rebalancing is turned on
+    //       await this.rebalancePortfolio(user);
+    //     }
+    //   }
+    // } catch (error) {
+    //   console.error('Error fetching users or rebalancing:', error);
+    // }
   }
 }
