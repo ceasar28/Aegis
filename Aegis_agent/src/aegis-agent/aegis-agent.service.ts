@@ -24,6 +24,8 @@ import {
   swapFromSolana,
   Quote,
   addresses,
+  fetchAllCoins,
+  fetchAllTokenList,
 } from '@mayanfinance/swap-sdk';
 import * as dotenv from 'dotenv';
 import { ethers } from 'ethers';
@@ -91,6 +93,9 @@ export class AegisAgentService {
   }
 
   async crossSwapToken(pK: string) {
+    const allTokens = await fetchAllTokenList(['native', 'erc20', 'spl']);
+
+    return allTokens;
     // const provider = createPublicClient({
     //   chain: base,
     //   transport: http('https://rpc.network'),
