@@ -90,7 +90,7 @@ export class AegisAgentService {
     }
   }
 
-  async crossSwapToken(pK: string) {
+  async crossSwapToken(pK: string, prompt: string) {
     // const provider = createPublicClient({
     //   chain: base,
     //   transport: http('https://rpc.network'),
@@ -130,16 +130,23 @@ export class AegisAgentService {
       //   permit,
       // );
       // const amount = ethers.parseUnits('10', 18);
+
       // const tokenContract = new ethers.Contract(
       //   '0x833589fcd6edb6e08f4c7c32d4f71b54bda02913',
       //   ERC20_ABI,
       //   signer,
       // );
 
+      // const checkAllowance = await tokenContract.allowance(
+      //   signer.getAddress(),
+      //   addresses.MAYAN_FORWARDER_CONTRACT,
+      // );
+
       // const approvalTx = await tokenContract.approve(
       //   addresses.MAYAN_FORWARDER_CONTRACT,
       //   amount,
       // );
+
       // await approvalTx.wait();
       // console.log('approval sent:', approvalTx.hash);
 
