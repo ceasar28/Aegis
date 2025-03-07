@@ -8,12 +8,11 @@ import {
   allFeaturesMarkup,
   displayPrivateKeyMarkup,
   exportWalletWarningMarkup,
-  linkToAppMarkup,
   resetWalletWarningMarkup,
   showBalanceMarkup,
   showPortfolioMarkup,
   // showPortfolioMarkup,
-  wallerDetailsMarkup,
+  walletDetailsMarkup,
   walletFeaturesMarkup,
   welcomeMessageMarkup,
 } from './markups';
@@ -134,105 +133,105 @@ export class AegisBotService {
   ) => {
     await this.aegisAgentbot.sendChatAction(msg.chat.id, 'typing');
     try {
-      const regex2 = /^0x[a-fA-F0-9]{40}$/;
-      const regex = /^Swap (?:also )?(\d+\.?\d*) (\w+) (?:to|for) (\w+)$/i;
-      const match = msg.text.trim().match(regex);
-      const match2 = msg.text.trim().match(regex2);
-      console.log(msg.text.trim());
+      // const regex2 = /^0x[a-fA-F0-9]{40}$/;
+      // const regex = /^Swap (?:also )?(\d+\.?\d*) (\w+) (?:to|for) (\w+)$/i;
+      // const match = msg.text.trim().match(regex);
+      // const match2 = msg.text.trim().match(regex2);
+      // console.log(msg.text.trim());
 
-      if (match) {
-        const user = await this.UserModel.findOne({ chatId: msg.chat.id });
-        await this.aegisAgentbot.sendChatAction(user.chatId, 'typing');
-        const encryptedWallet = await this.walletService.decryptEvmWallet(
-          `${process.env.DEFAULT_WALLET_PIN}`,
-          user.walletDetails,
-        );
-        console.log(encryptedWallet);
-        if (encryptedWallet.privateKey) {
-          const response = await this.aegisAgentService.swapToken(
-            encryptedWallet.privateKey,
-            msg.text.trim(),
-          );
-          if (response) {
-            const regex = /0x[a-fA-F0-9]{64}/g;
-            const matches = response.match(regex);
-            return await this.aegisAgentbot.sendMessage(
-              user.chatId,
-              `${response}.\n${matches[0] ? `View on mantlescan [${matches[0]}](https://mantlescan.xyz/tx/${matches[0]})` : ''}`,
-              {
-                parse_mode: 'Markdown',
-              },
-            );
-          }
-        }
-      }
-      if (session.tokenInsight && match2) {
-        console.log('here');
-        const tokenInsight = await this.aegisAgentService.analyzeToken(
-          msg.text.trim(),
-        );
-        if (tokenInsight.insight) {
-          await this.aegisAgentbot.sendMessage(
-            msg.chat.id,
-            `${tokenInsight.insight}`,
-            { parse_mode: 'Markdown' },
-          );
-          await this.SessionModel.deleteMany({ chatId: msg.chat.id });
-          return;
-        }
-      }
+      // if (match) {
+      //   const user = await this.UserModel.findOne({ chatId: msg.chat.id });
+      //   await this.aegisAgentbot.sendChatAction(user.chatId, 'typing');
+      //   const encryptedWallet = await this.walletService.decryptEvmWallet(
+      //     `${process.env.DEFAULT_WALLET_PIN}`,
+      //     user.walletDetails,
+      //   );
+      //   console.log(encryptedWallet);
+      //   if (encryptedWallet.privateKey) {
+      //     const response = await this.aegisAgentService.swapToken(
+      //       encryptedWallet.privateKey,
+      //       msg.text.trim(),
+      //     );
+      //     if (response) {
+      //       const regex = /0x[a-fA-F0-9]{64}/g;
+      //       const matches = response.match(regex);
+      //       return await this.aegisAgentbot.sendMessage(
+      //         user.chatId,
+      //         `${response}.\n${matches[0] ? `View on mantlescan [${matches[0]}](https://mantlescan.xyz/tx/${matches[0]})` : ''}`,
+      //         {
+      //           parse_mode: 'Markdown',
+      //         },
+      //       );
+      //     }
+      //   }
+      // }
+      // if (session.tokenInsight && match2) {
+      //   console.log('here');
+      //   const tokenInsight = await this.aegisAgentService.analyzeToken(
+      //     msg.text.trim(),
+      //   );
+      //   if (tokenInsight.insight) {
+      //     await this.aegisAgentbot.sendMessage(
+      //       msg.chat.id,
+      //       `${tokenInsight.insight}`,
+      //       { parse_mode: 'Markdown' },
+      //     );
+      //     await this.SessionModel.deleteMany({ chatId: msg.chat.id });
+      //     return;
+      //   }
+      // }
 
-      if (session.allocationSetting) {
-        const Allocation = await this.validateAllocations(
-          msg.text!.trim(),
-          msg.chat.id,
-        );
+      // if (session.allocationSetting) {
+      //   const Allocation = await this.validateAllocations(
+      //     msg.text!.trim(),
+      //     msg.chat.id,
+      //   );
 
-        console.log(Allocation);
-        if (Allocation.allocation1 && Allocation.allocation2) {
-          await this.UserModel.updateOne(
-            { chatId: msg.chat.id },
-            {
-              usdcAllocation: Allocation.allocation1,
-              modeAllocation: Allocation.allocation2,
-            },
-          );
-        }
-        await this.SessionModel.deleteMany({ chatId: msg.chat.id });
-        await this.aegisAgentbot.sendMessage(
-          msg.chat.id,
-          `Allocation succesfully set\n- USDC :${Allocation.allocation1}%\n- MOE : ${Allocation.allocation2} %`,
-        );
-      }
+      //   console.log(Allocation);
+      //   if (Allocation.allocation1 && Allocation.allocation2) {
+      //     await this.UserModel.updateOne(
+      //       { chatId: msg.chat.id },
+      //       {
+      //         usdcAllocation: Allocation.allocation1,
+      //         modeAllocation: Allocation.allocation2,
+      //       },
+      //     );
+      //   }
+      //   await this.SessionModel.deleteMany({ chatId: msg.chat.id });
+      //   await this.aegisAgentbot.sendMessage(
+      //     msg.chat.id,
+      //     `Allocation succesfully set\n- USDC :${Allocation.allocation1}%\n- MOE : ${Allocation.allocation2} %`,
+      //   );
+      // }
 
-      if (session.thresholdSetting) {
-        const threshold = await this.validateThresholds(
-          msg.text!.trim(),
-          msg.chat.id,
-        );
-        if (threshold.upperThreshold && threshold.lowerThreshold) {
-          await this.UserModel.updateOne(
-            { chatId: msg.chat.id },
-            {
-              upperThreshold: threshold.upperThreshold,
-              lowerThreshold: threshold.lowerThreshold,
-            },
-          );
-        }
-        await this.SessionModel.deleteMany({ chatId: msg.chat.id });
-        await this.aegisAgentbot.sendMessage(
-          msg.chat.id,
-          `Threshold succesfully set\n- Upper :${threshold.upperThreshold}%\n- Lower : ${threshold.lowerThreshold} %`,
-        );
-      }
+      // if (session.thresholdSetting) {
+      //   const threshold = await this.validateThresholds(
+      //     msg.text!.trim(),
+      //     msg.chat.id,
+      //   );
+      //   if (threshold.upperThreshold && threshold.lowerThreshold) {
+      //     await this.UserModel.updateOne(
+      //       { chatId: msg.chat.id },
+      //       {
+      //         upperThreshold: threshold.upperThreshold,
+      //         lowerThreshold: threshold.lowerThreshold,
+      //       },
+      //     );
+      //   }
+      //   await this.SessionModel.deleteMany({ chatId: msg.chat.id });
+      //   await this.aegisAgentbot.sendMessage(
+      //     msg.chat.id,
+      //     `Threshold succesfully set\n- Upper :${threshold.upperThreshold}%\n- Lower : ${threshold.lowerThreshold} %`,
+      //   );
+      // }
 
-      if (session) {
-        // update users answerId
-        await this.SessionModel.updateOne(
-          { _id: session._id },
-          { $push: { userInputId: msg.message_id } },
-        );
-      }
+      // if (session) {
+      //   // update users answerId
+      //   await this.SessionModel.updateOne(
+      //     { _id: session._id },
+      //     { $push: { userInputId: msg.message_id } },
+      //   );
+      // }
 
       // parse incoming message and handle commands
       try {
@@ -243,57 +242,114 @@ export class AegisBotService {
           session.importWalletPromptInput
         ) {
           await this.aegisAgentbot.sendChatAction(msg.chat.id, 'typing');
-          if (await this.isPrivateKey(msg.text!.trim(), msg.chat.id)) {
+          const IsValid = await this.isPrivateKey(
+            msg.text!.trim(),
+            msg.chat.id,
+          );
+          if (IsValid.isValid) {
             const privateKey = msg.text!.trim();
             console.log(privateKey);
-            const importedWallet =
-              this.walletService.getEvmAddressFromPrivateKey(`${privateKey}`);
-            console.log(importedWallet);
+            if (IsValid.walletType === 'evm') {
+              const importedWallet =
+                this.walletService.getEvmAddressFromPrivateKey(`${privateKey}`);
+              console.log(importedWallet);
 
-            // encrypt wallet details with  default
-            const encryptedWalletDetails =
-              await this.walletService.encryptEvmWallet(
-                process.env.DEFAULT_WALLET_PIN!,
-                privateKey,
+              // encrypt wallet details with  default
+              const encryptedWalletDetails =
+                await this.walletService.encryptEvmWallet(
+                  process.env.DEFAULT_WALLET_PIN!,
+                  privateKey,
+                );
+
+              const updatedUser = await this.UserModel.findOneAndUpdate(
+                { chatId: msg.chat.id },
+                {
+                  evmWalletDetails: encryptedWalletDetails.json,
+                  evmWalletAddress: importedWallet.address,
+                },
+                { new: true }, // This ensures the updated document is returned
               );
 
-            // save  user wallet details
-            await this.UserModel.updateOne(
-              { chatId: msg.chat.id },
-              {
-                defaultWalletDetails: encryptedWalletDetails.json,
-                walletAddress: importedWallet.address,
-              },
-            );
+              const promises: any[] = [];
+              const latestSession = await this.SessionModel.findOne({
+                chatId: msg.chat.id,
+              });
+              // loop through  import privateKey prompt to delete them
+              for (
+                let i = 0;
+                i < latestSession!.importWalletPromptInputId.length;
+                i++
+              ) {
+                promises.push(
+                  await this.aegisAgentbot.deleteMessage(
+                    msg.chat.id,
+                    latestSession!.importWalletPromptInputId[i],
+                  ),
+                );
+              }
+              // loop through to delete all userReply
+              for (let i = 0; i < latestSession!.userInputId.length; i++) {
+                promises.push(
+                  await this.aegisAgentbot.deleteMessage(
+                    msg.chat.id,
+                    latestSession!.userInputId[i],
+                  ),
+                );
+              }
 
-            const promises: any[] = [];
-            const latestSession = await this.SessionModel.findOne({
-              chatId: msg.chat.id,
-            });
-            // loop through  import privateKey prompt to delete them
-            for (
-              let i = 0;
-              i < latestSession!.importWalletPromptInputId.length;
-              i++
-            ) {
-              promises.push(
-                await this.aegisAgentbot.deleteMessage(
-                  msg.chat.id,
-                  latestSession!.importWalletPromptInputId[i],
-                ),
+              await this.sendWalletDetails(msg.chat.id, updatedUser);
+            } else if (IsValid.walletType === 'solana') {
+              const importedWallet =
+                this.walletService.getSolanaAddressFromPrivateKey(
+                  `${privateKey}`,
+                );
+              console.log(importedWallet);
+
+              // encrypt wallet details with  default
+              const encryptedWalletDetails =
+                await this.walletService.encryptSolanaWallet(
+                  process.env.DEFAULT_WALLET_PIN!,
+                  privateKey,
+                );
+
+              const updatedUser = await this.UserModel.findOneAndUpdate(
+                { chatId: msg.chat.id },
+                {
+                  solanaWalletDetails: encryptedWalletDetails.json,
+                  solanaWalletAddress: importedWallet.address,
+                },
+                { new: true }, // This ensures the updated document is returned
               );
+
+              const promises: any[] = [];
+              const latestSession = await this.SessionModel.findOne({
+                chatId: msg.chat.id,
+              });
+              // loop through  import privateKey prompt to delete them
+              for (
+                let i = 0;
+                i < latestSession!.importWalletPromptInputId.length;
+                i++
+              ) {
+                promises.push(
+                  await this.aegisAgentbot.deleteMessage(
+                    msg.chat.id,
+                    latestSession!.importWalletPromptInputId[i],
+                  ),
+                );
+              }
+              // loop through to delete all userReply
+              for (let i = 0; i < latestSession!.userInputId.length; i++) {
+                promises.push(
+                  await this.aegisAgentbot.deleteMessage(
+                    msg.chat.id,
+                    latestSession!.userInputId[i],
+                  ),
+                );
+              }
+
+              await this.sendWalletDetails(msg.chat.id, updatedUser);
             }
-            // loop through to delete all userReply
-            for (let i = 0; i < latestSession!.userInputId.length; i++) {
-              promises.push(
-                await this.aegisAgentbot.deleteMessage(
-                  msg.chat.id,
-                  latestSession!.userInputId[i],
-                ),
-              );
-            }
-
-            await this.sendWalletDetails(msg.chat.id, importedWallet.address);
           }
           return;
         }
@@ -313,63 +369,63 @@ export class AegisBotService {
   //handler for users inputs
   handleAgentprompts = async (user: UserDocument, msg: string) => {
     console.log('here');
+    console.log(msg);
     await this.aegisAgentbot.sendChatAction(user.chatId, 'typing');
     try {
-      const regex2 = /^0x[a-fA-F0-9]{64}$/;
-      const regex = /^Swap (?:also )?(\d+\.?\d*) (\w+) (?:to|for) (\w+)$/i;
-      const match = msg.trim().match(regex);
-      const match2 = msg.trim().match(regex2);
-      if (match) {
-        await this.aegisAgentbot.sendChatAction(user.chatId, 'typing');
-        const encryptedWallet = await this.walletService.decryptEvmWallet(
-          `${process.env.DEFAULT_WALLET_PIN}`,
-          user.walletDetails,
-        );
-        console.log(encryptedWallet);
-        if (encryptedWallet.privateKey) {
-          const response = await this.aegisAgentService.swapToken(
-            encryptedWallet.privateKey,
-            msg,
-          );
-
-          if (response) {
-            const regex = /0x[a-fA-F0-9]{64}/g;
-            const matches = response.match(regex);
-            return await this.aegisAgentbot.sendMessage(
-              user.chatId,
-              `${response}.\n${matches[0] ? `View on mantlescan [${matches[0]}](https://mantlescan.xyz/tx/${matches[0]})` : ''}`,
-              {
-                parse_mode: 'Markdown',
-              },
-            );
-          }
-        }
-      } else if (match2) {
-        const tokenInsight = await this.aegisAgentService.analyzeToken(
-          msg.trim(),
-        );
-        if (tokenInsight.insight) {
-          await this.aegisAgentbot.sendMessage(
-            user.chatId,
-            `${tokenInsight.insight}`,
-            { parse_mode: 'Markdown' },
-          );
-          await this.SessionModel.deleteMany({ chatId: user.chatId });
-          return;
-        }
-      } else if (!match2 && !match) {
-        const response = await this.aegisAgentService.agentChat(msg);
-        if (response.response) {
-          return await this.aegisAgentbot.sendMessage(
-            user.chatId,
-            response.response,
-            {
-              parse_mode: 'Markdown',
-            },
-          );
-        }
-        return;
-      }
+      // const regex2 = /^0x[a-fA-F0-9]{64}$/;
+      // const regex = /^Swap (?:also )?(\d+\.?\d*) (\w+) (?:to|for) (\w+)$/i;
+      // const match = msg.trim().match(regex);
+      // const match2 = msg.trim().match(regex2);
+      // if (match) {
+      //   await this.aegisAgentbot.sendChatAction(user.chatId, 'typing');
+      //   const encryptedWallet = await this.walletService.decryptEvmWallet(
+      //     `${process.env.DEFAULT_WALLET_PIN}`,
+      //     user.walletDetails,
+      //   );
+      //   console.log(encryptedWallet);
+      //   if (encryptedWallet.privateKey) {
+      //     const response = await this.aegisAgentService.swapToken(
+      //       encryptedWallet.privateKey,
+      //       msg,
+      //     );
+      //     if (response) {
+      //       const regex = /0x[a-fA-F0-9]{64}/g;
+      //       const matches = response.match(regex);
+      //       return await this.aegisAgentbot.sendMessage(
+      //         user.chatId,
+      //         `${response}.\n${matches[0] ? `View on mantlescan [${matches[0]}](https://mantlescan.xyz/tx/${matches[0]})` : ''}`,
+      //         {
+      //           parse_mode: 'Markdown',
+      //         },
+      //       );
+      //     }
+      //   }
+      // } else if (match2) {
+      //   const tokenInsight = await this.aegisAgentService.analyzeToken(
+      //     msg.trim(),
+      //   );
+      //   if (tokenInsight.insight) {
+      //     await this.aegisAgentbot.sendMessage(
+      //       user.chatId,
+      //       `${tokenInsight.insight}`,
+      //       { parse_mode: 'Markdown' },
+      //     );
+      //     await this.SessionModel.deleteMany({ chatId: user.chatId });
+      //     return;
+      //   }
+      // } else if (!match2 && !match) {
+      //   const response = await this.aegisAgentService.agentChat(msg);
+      //   if (response.response) {
+      //     return await this.aegisAgentbot.sendMessage(
+      //       user.chatId,
+      //       response.response,
+      //       {
+      //         parse_mode: 'Markdown',
+      //       },
+      //     );
+      //   }
+      //   return;
+      // }
     } catch (error) {
       console.log(error);
     }
@@ -377,30 +433,31 @@ export class AegisBotService {
 
   promptAgentToRebalance = async (user: UserDocument, msg: string) => {
     console.log('rebalancing');
+    console.log(msg);
     await this.aegisAgentbot.sendChatAction(user.chatId, 'typing');
     try {
-      const encryptedWallet = await this.walletService.decryptEvmWallet(
-        `${process.env.DEFAULT_WALLET_PIN}`,
-        user.walletDetails,
-      );
-      console.log(encryptedWallet);
-      if (encryptedWallet.privateKey) {
-        const response = await this.aegisAgentService.swapToken(
-          encryptedWallet.privateKey,
-          msg,
-        );
-        if (response) {
-          const regex = /0x[a-fA-F0-9]{64}/g;
-          const matches = response.match(regex);
-          return await this.aegisAgentbot.sendMessage(
-            user.chatId,
-            `🔔Rebalance Alert🔔\n\n${response}.\n${matches[0] ? `View on mantlescan [${matches[0]}](https://mantlescan.xyz/tx/${matches[0]})` : ''}`,
-            {
-              parse_mode: 'Markdown',
-            },
-          );
-        }
-      }
+      // const encryptedWallet = await this.walletService.decryptEvmWallet(
+      //   `${process.env.DEFAULT_WALLET_PIN}`,
+      //   user.walletDetails,
+      // );
+      // console.log(encryptedWallet);
+      // if (encryptedWallet.privateKey) {
+      //   const response = await this.aegisAgentService.swapToken(
+      //     encryptedWallet.privateKey,
+      //     msg,
+      //   );
+      //   if (response) {
+      //     const regex = /0x[a-fA-F0-9]{64}/g;
+      //     const matches = response.match(regex);
+      //     return await this.aegisAgentbot.sendMessage(
+      //       user.chatId,
+      //       `🔔Rebalance Alert🔔\n\n${response}.\n${matches[0] ? `View on mantlescan [${matches[0]}](https://mantlescan.xyz/tx/${matches[0]})` : ''}`,
+      //       {
+      //         parse_mode: 'Markdown',
+      //       },
+      //     );
+      //   }
+      // }
     } catch (error) {
       console.log(error);
     }
@@ -465,36 +522,45 @@ export class AegisBotService {
 
         case '/createWallet':
           // check if user already have a wallet
-          if (user!.walletAddress) {
-            return this.sendWalletDetails(chatId, user!.walletAddress);
+          if (user!.evmWalletAddress || user!.solanaWalletAddress) {
+            return this.sendWalletDetails(chatId, user);
           }
-          const newWallet = await this.walletService.createEvmWallet();
-          const [encryptedWalletDetails] = await Promise.all([
-            this.walletService.encryptEvmWallet(
-              process.env.DEFAULT_WALLET_PIN!,
-              newWallet.privateKey,
-            ),
-          ]);
+          const newEvmWallet = await this.walletService.createEvmWallet();
+          const newSolanaWallet = await this.walletService.createSolanaWallet();
+          const [encryptedEvmWalletDetails, encryptedSolanaWalletDetails] =
+            await Promise.all([
+              this.walletService.encryptEvmWallet(
+                process.env.DEFAULT_WALLET_PIN!,
+                newEvmWallet.privateKey,
+              ),
+              this.walletService.encryptSolanaWallet(
+                process.env.DEFAULT_WALLET_PIN!,
+                newSolanaWallet.privateKey,
+              ),
+            ]);
 
           // Save user wallet details
-          await this.UserModel.updateOne(
+          const updatedUser = await this.UserModel.findOneAndUpdate(
             { chatId: chatId },
             {
-              walletDetails: encryptedWalletDetails.json,
-              walletAddress: newWallet.address,
+              evmWalletDetails: encryptedEvmWalletDetails.json,
+              walletAddress: newEvmWallet.address,
+              solanaWalletDetails: encryptedSolanaWalletDetails.json,
+              solanaWalletAddress: newSolanaWallet.address,
             },
+            { new: true }, // This ensures the updated document is returned
           );
           // Send wallet details to the user
-          return await this.sendWalletDetails(chatId, newWallet.address);
+          return await this.sendWalletDetails(chatId, updatedUser);
 
         case '/linkWallet':
           // check if user already have a wallet
-          if (user!.walletAddress) {
+          if (user!.evmWalletAddress && user!.solanaWalletAddress) {
             await this.aegisAgentbot.sendMessage(
               query.message.chat.id,
-              `‼️ You already have a wallet\n\nto link a new, make sure to export and secure you old wallet and then click on the reset wallet button`,
+              `‼️ You already have an EVM and Solana wallet\n\nto link a new, make sure to export and secure you old wallets and then click on the reset wallet button`,
             );
-            return this.sendWalletDetails(chatId, user!.walletAddress);
+            return this.sendWalletDetails(chatId, user);
           }
           // delete any existing session if any
           await this.SessionModel.deleteMany({ chatId: chatId });
@@ -513,27 +579,35 @@ export class AegisBotService {
           );
 
         case '/fundWallet':
-          if (user?.walletAddress) {
-            return await this.aegisAgentbot.sendMessage(
-              chatId,
-              `Your Address:\n<b><code>${user?.walletAddress}</code></b>\n\n send token to your address above `,
-              {
-                parse_mode: 'HTML',
-                reply_markup: {
-                  inline_keyboard: [
-                    [
-                      {
-                        text: 'Close ❌',
-                        callback_data: JSON.stringify({
-                          command: '/close',
-                          language: 'english',
-                        }),
-                      },
-                    ],
+          if (user?.evmWalletAddress || user?.solanaWalletAddress) {
+            let message = 'Your Address:\n';
+
+            if (user?.evmWalletAddress) {
+              message += `<b><code>${user.evmWalletAddress}</code></b> (EVM Wallet)\n\n`;
+            }
+
+            if (user?.solanaWalletAddress) {
+              message += `<b><code>${user.solanaWalletAddress}</code></b> (Solana Wallet)\n\n`;
+            }
+
+            message += 'Send tokens to your address above.';
+
+            return await this.aegisAgentbot.sendMessage(chatId, message, {
+              parse_mode: 'HTML',
+              reply_markup: {
+                inline_keyboard: [
+                  [
+                    {
+                      text: 'Close ❌',
+                      callback_data: JSON.stringify({
+                        command: '/close',
+                        language: 'english',
+                      }),
+                    },
                   ],
-                },
+                ],
               },
-            );
+            });
           }
           return await this.aegisAgentbot.sendMessage(
             chatId,
@@ -547,7 +621,7 @@ export class AegisBotService {
           return this.showUserPortfolio(user);
 
         case '/exportWallet':
-          if (!user!.walletDetails) {
+          if (!user!.evmWalletDetails && !user!.solanaWalletAddress) {
             return this.aegisAgentbot.sendMessage(
               chatId,
               `You Don't have a wallet`,
@@ -563,13 +637,30 @@ export class AegisBotService {
             chatId: chatId,
             exportWallet: true,
           });
-          if (session && user!.walletDetails) {
-            const decryptedWallet = await this.walletService.decryptEvmWallet(
-              process.env.DEFAULT_WALLET_PIN!,
-              user!.walletDetails,
-            );
+          if (
+            session &&
+            (user!.evmWalletDetails || user!.solanaWalletDetails)
+          ) {
+            let decryptedEvmWallet;
+            let decryptedSolanaWallet;
+            if (user!.evmWalletDetails) {
+              decryptedEvmWallet = await this.walletService.decryptEvmWallet(
+                process.env.DEFAULT_WALLET_PIN!,
+                user!.evmWalletDetails,
+              );
+            }
+            if (user!.solanaWalletDetails) {
+              decryptedSolanaWallet =
+                await this.walletService.decryptSolanaWallet(
+                  process.env.DEFAULT_WALLET_PIN!,
+                  user!.solanaWalletDetails,
+                );
+            }
 
-            if (decryptedWallet.privateKey) {
+            if (
+              decryptedEvmWallet.privateKey ||
+              decryptedSolanaWallet.privateKey
+            ) {
               const latestSession = await this.SessionModel.findOne({
                 chatId: chatId,
               });
@@ -585,7 +676,8 @@ export class AegisBotService {
               // Display the decrypted private key to the user
               await this.displayWalletPrivateKey(
                 chatId,
-                decryptedWallet.privateKey,
+                decryptedEvmWallet.privateKey || '',
+                decryptedSolanaWallet.privateKey || '',
               );
 
               return;
@@ -660,9 +752,6 @@ export class AegisBotService {
             query.message.chat.id,
             `Processing command failed, please try again`,
           );
-
-        case '/linkToApp':
-          return this.linkBotToAppMarkup(chatId, user);
 
         case '/setTargetAllocation':
           await this.aegisAgentbot.sendChatAction(chatId, 'typing');
@@ -749,12 +838,15 @@ export class AegisBotService {
 
   sendWalletDetails = async (
     ChatId: TelegramBot.ChatId,
-    walletAddress: string,
+    user: UserDocument,
   ) => {
     await this.aegisAgentbot.sendChatAction(ChatId, 'typing');
     try {
-      const walletDetails = await wallerDetailsMarkup(walletAddress);
-      if (wallerDetailsMarkup!) {
+      const walletDetails = await walletDetailsMarkup(
+        user.evmWalletDetails,
+        user.solanaWalletAddress,
+      );
+      if (walletDetailsMarkup!) {
         const replyMarkup = {
           inline_keyboard: walletDetails.keyboard,
         };
@@ -803,10 +895,10 @@ export class AegisBotService {
     try {
       await this.aegisAgentbot.sendChatAction(chatId, 'typing');
       const user = await this.UserModel.findOne({ chatId: chatId });
-      if (!user?.walletAddress) {
+      if (!user?.evmWalletAddress || !user?.solanaWalletAddress) {
         return this.aegisAgentbot.sendMessage(
           chatId,
-          `You don't have a wallet connected`,
+          `You don't have any wallet connected`,
         );
       }
 
@@ -902,44 +994,32 @@ export class AegisBotService {
     }
   };
 
-  linkBotToAppMarkup = async (
-    chatId: TelegramBot.ChatId,
-    user: UserDocument,
-  ) => {
-    try {
-      await this.aegisAgentbot.sendChatAction(chatId, 'typing');
-      if (user.linkCode) {
-        const linkAppMarkup = await linkToAppMarkup(user.linkCode);
-        const replyMarkup = { inline_keyboard: linkAppMarkup.keyboard };
-
-        return await this.aegisAgentbot.sendMessage(
-          chatId,
-          linkAppMarkup.message,
-          {
-            parse_mode: 'HTML',
-            reply_markup: replyMarkup,
-          },
-        );
-      }
-    } catch (error) {
-      console.log(error);
-    }
-  };
-
   // utitlity functions
-  isPrivateKey = async (input: string, chatId: number): Promise<boolean> => {
+  isPrivateKey = async (
+    input: string,
+    chatId: number,
+  ): Promise<{ isValid: boolean; walletType: string | null }> => {
     const latestSession = await this.SessionModel.findOne({ chatId: chatId });
     const trimmedInput = input.trim();
-    const privateKeyRegex = /^0x[a-fA-F0-9]{64}$/;
-    if (privateKeyRegex.test(trimmedInput)) {
-      return true;
+
+    // Regex for Ethereum (EVM) private key (64 hex chars starting with 0x)
+    const evmPrivateKeyRegex = /^0x[a-fA-F0-9]{64}$/;
+
+    // Regex for Solana private key (Base58 encoded, usually 44 chars)
+    const solanaPrivateKeyRegex = /^[A-Za-z1-9]{32,44}$/;
+
+    // Check if the input matches either EVM or Solana private key regex
+    if (evmPrivateKeyRegex.test(trimmedInput)) {
+      return { isValid: true, walletType: 'evm' };
+    } else if (solanaPrivateKeyRegex.test(trimmedInput)) {
+      return { isValid: true, walletType: 'solana' };
     } else if (latestSession) {
       if (latestSession!.importWallet) {
         this.aegisAgentbot.sendMessage(chatId, 'Invalid Private KEY');
       }
 
       const promises: any[] = [];
-      // loop through  import privateKey prompt to delete them
+      // Loop through import privateKey prompt to delete them
       for (let i = 0; i < latestSession.importWalletPromptInputId.length; i++) {
         try {
           promises.push(
@@ -952,7 +1032,8 @@ export class AegisBotService {
           console.log(error);
         }
       }
-      // loop through to delet all userReply
+
+      // Loop through to delete all userReply messages
       for (let i = 0; i < latestSession.userInputId.length; i++) {
         try {
           promises.push(
@@ -965,18 +1046,24 @@ export class AegisBotService {
           console.log(error);
         }
       }
-      return false;
+
+      return { isValid: false, walletType: null };
     }
-    return false;
+
+    return { isValid: false, walletType: null };
   };
 
   displayWalletPrivateKey = async (
     chatId: TelegramBot.ChatId,
-    privateKey: string,
+    privateKeyEVM: string,
+    privateKeySolana: string,
   ) => {
     try {
       await this.aegisAgentbot.sendChatAction(chatId, 'typing');
-      const displayPrivateKey = await displayPrivateKeyMarkup(privateKey);
+      const displayPrivateKey = await displayPrivateKeyMarkup(
+        privateKeyEVM,
+        privateKeySolana,
+      );
       if (displayPrivateKey) {
         const replyMarkup = { inline_keyboard: displayPrivateKey.keyboard };
 
@@ -1043,67 +1130,6 @@ export class AegisBotService {
       }
     }
     return result;
-  };
-
-  linkBotToApp = async (uniquecode: string) => {
-    try {
-      const user = await this.UserModel.findOne({ linkCode: uniquecode });
-
-      if (user) {
-        return {
-          username: user.userName,
-          walletAddress: user.walletAddress,
-          profileImage: `${process.env.BASE_URL}/rebalancr-bot/profile-photo/${user.chatId}`,
-        };
-      }
-    } catch (error) {
-      console.log(error);
-    }
-  };
-
-  getProfilePhoto = async (chatId: number) => {
-    try {
-      const photos = await this.aegisAgentbot.getUserProfilePhotos(chatId, {
-        limit: 1,
-      });
-      console.log(photos.photos);
-
-      if (photos.total_count > 0 && photos.photos[0].length >= 3) {
-        const fileId = photos.photos[0][2].file_id;
-        const file = await this.aegisAgentbot.getFile(fileId);
-        const filePath = file.file_path;
-
-        const photoUrl = `https://api.telegram.org/file/bot${token}/${filePath}`;
-        const photoResponse = await fetch(photoUrl);
-        if (photoResponse) {
-          const arrayBuffer = await photoResponse.arrayBuffer();
-          if (arrayBuffer) {
-            const buffer = await Buffer.from(arrayBuffer);
-            if (buffer) {
-              return { photoResponse, buffer };
-            }
-          }
-        }
-      } else if (photos.total_count > 0) {
-        const fileId = photos.photos[0][0].file_id;
-        const file = await this.aegisAgentbot.getFile(fileId);
-        const filePath = file.file_path;
-
-        const photoUrl = `https://api.telegram.org/file/bot${token}/${filePath}`;
-        const photoResponse = await fetch(photoUrl);
-        if (photoResponse) {
-          const arrayBuffer = await photoResponse.arrayBuffer();
-          if (arrayBuffer) {
-            const buffer = await Buffer.from(arrayBuffer);
-            if (buffer) {
-              return { photoResponse, buffer };
-            }
-          }
-        }
-      }
-    } catch (error) {
-      console.error(error);
-    }
   };
 
   promptTokenAddress = async (chatId: TelegramBot.ChatId) => {

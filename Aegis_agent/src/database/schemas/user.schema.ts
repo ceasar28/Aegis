@@ -12,10 +12,16 @@ export class User {
   userName: string;
 
   @Prop()
-  walletAddress: string;
+  evmWalletAddress: string;
 
   @Prop()
-  walletDetails: string;
+  solanaWalletAddress: string;
+
+  @Prop()
+  evmWalletDetails: string;
+
+  @Prop()
+  solanaWalletDetails: string;
 
   @Prop()
   linkCode: string;

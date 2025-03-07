@@ -24,6 +24,7 @@ import {
   swapFromSolana,
   Quote,
   addresses,
+  fetchAllTokenList,
 } from '@mayanfinance/swap-sdk';
 import * as dotenv from 'dotenv';
 import { ethers } from 'ethers';
@@ -107,8 +108,8 @@ export class AegisAgentService {
     try {
       const quotes = await fetchQuote({
         amount: 10,
-        fromToken: '0x833589fcd6edb6e08f4c7c32d4f71b54bda02913',
-        toToken: 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v',
+        fromToken: '0x0000000000000000000000000000000000000000',
+        toToken: '0x0000000000000000000000000000000000000000',
         fromChain: 'base',
         toChain: 'solana',
         slippageBps: 300, // means 3%
