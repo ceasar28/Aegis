@@ -7,6 +7,9 @@ import { privateKeyToAccount } from 'viem/accounts';
 import { mantle } from 'viem/chains';
 import { getOnChainTools } from '@goat-sdk/adapter-vercel-ai';
 import { moe } from '../../sdk/goat-sdk/plugins/moe/src';
+import { Connection, PublicKey, Keypair, Transaction, sendAndConfirmTransaction } from "@solana/web3.js";
+import { getOrCreateAssociatedTokenAccount, approveChecked, TOKEN_PROGRAM_ID, getAssociatedTokenAddress, createAssociatedTokenAccountInstruction } from "@solana/spl-token";
+import bs58 from "bs58";
 import {
   USDC,
   USDT,
@@ -24,6 +27,7 @@ import {
   swapFromSolana,
   Quote,
   addresses,
+  ChainName,
 } from '@mayanfinance/swap-sdk';
 import * as dotenv from 'dotenv';
 import { ethers } from 'ethers';
@@ -32,7 +36,7 @@ dotenv.config();
 
 @Injectable()
 export class AegisAgentService {
-  constructor() {}
+  constructor() { }
 
   async agentChat(prompt: string) {
     try {
@@ -90,7 +94,245 @@ export class AegisAgentService {
     }
   }
 
-  async crossSwapToken(pK: string) {
+  async crossSwapToken(privateKey: { evm: string, solana: string }, prompt: string) {
+    try {
+      const {
+        fromToken,
+        toToken,
+        amount,
+        fromChain,
+        toChain,
+        providerUrl
+      } = this.processPrompt(prompt);
+
+      const [fromTokenAddress, toTokenAddress] = await Promise.all([
+        this.getTokenAddress(fromChain, fromToken),
+        this.getTokenAddress(toChain, toToken)
+      ]);
+
+      if (!fromTokenAddress || !toTokenAddress) {
+        console.error("Failed to fetch token addresses");
+        return;
+      }
+
+      const payer = Keypair.fromSecretKey(bs58.decode(privateKey.solana)); // ✅ Correct conversion
+
+      const provider = new ethers.JsonRpcProvider(providerUrl);
+      const signer = new ethers.Wallet(privateKey.evm, provider);
+
+      let destinationAddress: any;
+      if (toChain === "solana") {
+        destinationAddress = payer.publicKey
+      } else {
+        destinationAddress = signer.address;
+      }
+
+      if (fromChain === "solana") {
+        // **SOLANA FLOW**
+        console.log("Processing swap on Solana...");
+
+        const connection = new Connection(providerUrl);
+        const fromTokenMint = new PublicKey(fromTokenAddress);
+
+        // const tokenAccount = await connection.getParsedTokenAccountsByOwner(
+        //   payer.publicKey,
+        //   { mint: fromTokenMint }
+        // );
+
+        // // If no associated token account exists, create one
+        // let userTokenAccount;
+        // if (tokenAccount.value.length === 0) {
+        //   console.log("No associated token account found. Creating one...");
+        //   userTokenAccount = await getAssociatedTokenAddress(
+        //     fromTokenMint,
+        //     payer.publicKey
+        //   );
+
+        //   const transaction = new Transaction().add(
+        //     createAssociatedTokenAccountInstruction(
+        //       payer.publicKey, // Payer
+        //       userTokenAccount, // New Token Account
+        //       payer.publicKey, // Owner
+        //       fromTokenMint // Token Mint
+        //     )
+        //   );
+
+        //   await sendAndConfirmTransaction(connection, transaction, [payer]);
+        //   console.log("Created associated token account:", userTokenAccount.toString());
+        // } else {
+        //   userTokenAccount = tokenAccount.value[0].pubkey;
+        //   console.log("Using existing associated token account:", userTokenAccount.toString());
+        // }
+
+        console.log("here")
+        const quotes = await fetchQuote({
+          amount,
+          fromToken: fromTokenAddress,
+          toToken: toTokenAddress,
+          fromChain,
+          toChain,
+          slippageBps: 300,
+          gasDrop: 0,
+          referrerBps: 5
+        });
+
+        console.log("Fetched Quotes:", quotes);
+
+        // const approvalTx = await approveChecked(
+        //   connection,
+        //   payer,
+        //   fromTokenMint,
+        //   payer.publicKey,
+        //   new PublicKey(addresses.MAYAN_FORWARDER_CONTRACT),
+        //   payer,
+        //   amount,
+        //   6 // Assuming USDC or similar token with 6 decimals
+        // );
+
+        // console.log("Approval Confirmed!", approvalTx);
+
+        console.log("Initiating Swap...");
+        const swapTrx = await swapFromSolana(
+          quotes[0],
+          payer.publicKey.toString(),
+          destinationAddress,
+          {
+            evm: "0xB4b781F17d3E40976B653f1EA4DeD57bD0189654",
+            solana: "Dfo4P23Au7U5ZdZV8myrh3j7gY4HKai7qoVop33EaKwd"
+          },
+          {} as any
+        );
+
+        console.log("Swap Transaction:", swapTrx);
+      } else {
+        // **EVM FLOW**
+        console.log("Processing swap on EVM...");
+
+
+        const quotes = await fetchQuote({
+          amount,
+          fromToken: fromTokenAddress,
+          toToken: toTokenAddress,
+          fromChain,
+          toChain,
+          slippageBps: 300,
+          gasDrop: 0,
+          referrerBps: 5
+        });
+
+        console.log("Fetched Quotes:", quotes);
+
+        // Approve Token Transfer
+        const tokenContract = new ethers.Contract(fromTokenAddress, ERC20_ABI, signer);
+        const approvalTx = await tokenContract.approve(
+          addresses.MAYAN_FORWARDER_CONTRACT,
+          amount
+        );
+
+        await approvalTx.wait();
+        console.log("Approval Confirmed!");
+
+        console.log("Initiating Swap...");
+        const swapTrx = await swapFromEvm(
+          quotes[0],
+          signer.address,
+          destinationAddress,
+          {
+            evm: "0xB4b781F17d3E40976B653f1EA4DeD57bD0189654",
+            solana: "Dfo4P23Au7U5ZdZV8myrh3j7gY4HKai7qoVop33EaKwd"
+          },
+          signer,
+          null,
+          null,
+          null
+        )
+
+        console.log("Swap Transaction:", swapTrx);
+      }
+    } catch (error) {
+      console.error("Error in crossSwapToken:", error);
+    }
+  }
+
+  processPrompt(prompt: string) {
+    const regex = /(swap|bridge)\s*(\d+)\s*([a-zA-Z0-9]+)\s*on\s*([a-zA-Z0-9]+)\s*to\s*([a-zA-Z0-9]+)\s*on\s*([a-zA-Z0-9]+)/i;
+    const match = prompt.match(regex);
+
+    if (!match) {
+      throw new Error("Invalid prompt format. Use: 'Swap 10usdc on base to eth on arbitrum' or 'Bridge 10usdc on base to eth on arbitrum'");
+    }
+
+    const amount = parseFloat(match[2]);
+    const fromToken = match[3].trim();
+    const fromChain = match[4].trim().toLowerCase();
+    const toToken = match[5].trim();
+    const toChain = match[6].trim().toLowerCase();
+
+    const validChains = ['solana', 'ethereum', 'bsc', 'polygon', 'avalanche', 'arbitrum', 'optimism', 'base', 'aptos', 'sui'];
+
+    if (!validChains.includes(fromChain)) {
+      throw new Error(`Invalid fromChain: '${fromChain}'. Must be one of: ${validChains.join(', ')}`);
+    }
+
+    if (!validChains.includes(toChain)) {
+      throw new Error(`Invalid toChain: '${toChain}'. Must be one of: ${validChains.join(', ')}`);
+    }
+
+    // Mapping chain names to RPC URLs
+    const chainToProvider: Record<ChainName, string> = {
+      solana: "https://api.mainnet-beta.solana.com",
+      ethereum: "https://eth-mainnet.g.alchemy.com/v2/YOUR_ALCHEMY_KEY",
+      bsc: "https://bsc-dataseed.bnbchain.org",
+      polygon: "https://polygon-rpc.com",
+      avalanche: "https://api.avax.network/ext/bc/C/rpc",
+      arbitrum: "https://arb1.arbitrum.io/rpc",
+      optimism: "https://mainnet.optimism.io",
+      base: "https://mainnet.base.org",
+      aptos: "https://fullnode.mainnet.aptoslabs.com",
+      sui: "https://fullnode.mainnet.sui.io",
+    };
+    const providerUrl = chainToProvider[fromChain as ChainName];
+
+    return {
+      fromToken,
+      toToken,
+      amount,
+      fromChain: fromChain as ChainName,
+      toChain: toChain as ChainName,
+      providerUrl
+    };
+  }
+
+  async getTokenAddress(chain: string, tokenSymbol: string) {
+    try {
+      const url = `https://price-api.mayan.finance/v3/tokens?chain=${chain}`;
+      const response = await fetch(url);
+      const data = await response.json();
+
+      if (!data[chain]) {
+        console.error(`No data found for chain: ${chain}`);
+        return null;
+      }
+
+      // Find the token by symbol
+      const token = data[chain].find((t: any) => t.symbol.toLowerCase() === tokenSymbol.toLowerCase());
+
+      if (!token) {
+        console.error(`Token ${tokenSymbol} not found on chain ${chain}`);
+        return null;
+      }
+
+      // Use wrapped address if it's a native token
+      return token.contract === "0x0000000000000000000000000000000000000000"
+        ? token.wrappedAddress
+        : token.contract;
+    } catch (error) {
+      console.error(`Error fetching token address for ${tokenSymbol} on ${chain}:`, error);
+      return null;
+    }
+  }
+
+  async crossSwapTokenMain(pK: string) {
     // const provider = createPublicClient({
     //   chain: base,
     //   transport: http('https://rpc.network'),
@@ -183,7 +425,7 @@ export class AegisAgentService {
         fully_Diluted_Valuation:
           tokenData.data.attributes.fdv_usd ||
           parseFloat(tokenData.data.attributes.price_usd) *
-            parseFloat(tokenData.data.attributes.price_usd),
+          parseFloat(tokenData.data.attributes.price_usd),
         market_cap_usd: tokenData.data.attributes.market_cap_usd,
         volume_usd: tokenData.data.attributes.volume_usd.h24,
       };

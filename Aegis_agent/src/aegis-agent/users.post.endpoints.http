@@ -1,0 +1,6 @@
+POST http://localhost:5229/aegis-agent
+Content-Type: application/json
+
+{
+    "prompt": "Swap 1 usdc on solana to usdt on base"
+}

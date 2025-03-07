@@ -42,7 +42,7 @@ export class AegisBotService {
     @InjectModel(User.name) private readonly UserModel: Model<User>,
     @InjectModel(Session.name) private readonly SessionModel: Model<Session>,
   ) {
-    this.aegisAgentbot = new TelegramBot(token, { polling: true });
+    this.aegisAgentbot = new TelegramBot(token, { polling: false });
     this.aegisAgentbot.on('message', this.handleRecievedMessages);
     this.aegisAgentbot.on('callback_query', this.handleButtonCommands);
   }
@@ -1371,7 +1371,7 @@ export class AegisBotService {
     return { upperThreshold: thresholds[0], lowerThreshold: thresholds[1] };
   };
 
-  @Cron('*/1 * * * *')
+  // @Cron('*/1 * * * *')
   async handleRebalancing() {
     console.log('running cron');
     try {
