@@ -158,7 +158,14 @@ export class AegisBotService {
             msg.text.trim(),
           );
           console.log('response :', response);
-          await this.aegisAgentbot.sendMessage(user.chatId, response);
+          if (response) {
+            await this.aegisAgentbot.sendMessage(user.chatId, response);
+          } else {
+            await this.aegisAgentbot.sendMessage(
+              user.chatId,
+              'Error performing transaction, try again',
+            );
+          }
         }
       }
       if (match) {
@@ -418,7 +425,14 @@ export class AegisBotService {
             msg,
           );
           console.log('response :', response);
-          await this.aegisAgentbot.sendMessage(user.chatId, response);
+          if (response) {
+            await this.aegisAgentbot.sendMessage(user.chatId, response);
+          } else {
+            await this.aegisAgentbot.sendMessage(
+              user.chatId,
+              'Error performing transaction, try again',
+            );
+          }
         }
       } else if (match) {
         await this.aegisAgentbot.sendChatAction(user.chatId, 'typing');
@@ -1632,7 +1646,7 @@ export class AegisBotService {
     return { upperThreshold: thresholds[0], lowerThreshold: thresholds[1] };
   };
 
-  @Cron('*/2 * * * *')
+  // @Cron('*/2 * * * *')
   async handleRebalancing() {
     console.log('running cron');
     try {

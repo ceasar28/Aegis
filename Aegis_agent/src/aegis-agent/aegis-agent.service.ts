@@ -115,15 +115,12 @@ export class AegisAgentService {
     prompt: string,
   ) {
     try {
-      const keypair = Keypair.generate();
       const { fromToken, toToken, amount, fromChain, toChain, providerUrl } =
         this.processPrompt(prompt);
-
       const [fromTokenAddress, toTokenAddress] = await Promise.all([
         this.getTokenAddress(fromChain, fromToken),
         this.getTokenAddress(toChain, toToken),
       ]);
-
       if (!fromTokenAddress || !toTokenAddress) {
         console.error('Failed to fetch token addresses');
         return;
@@ -142,12 +139,9 @@ export class AegisAgentService {
       }
 
       if (fromChain === 'solana') {
-        // **SOLANA FLOW**
-        const fromTokenMint = new PublicKey(fromTokenAddress);
-
         const quotes = await fetchQuote({
           amount,
-          fromToken: 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v',
+          fromToken: fromTokenAddress,
           toToken: toTokenAddress,
           fromChain,
           toChain,
@@ -156,17 +150,21 @@ export class AegisAgentService {
           referrerBps: 0,
         });
 
+        console.log(quotes);
         const connection = new Connection(`${process.env.SOLANA_RPC}`, {
           commitment: 'confirmed',
         });
 
         const mintAddress = await this.getMintAddress('solana', fromToken);
+        console.log(mintAddress);
         const account = await getOrCreateAssociatedTokenAccount(
           connection,
           payer,
           new PublicKey(mintAddress),
           payer.publicKey,
         );
+
+        console.log(account);
 
         const swapTrx = await createSwapFromSolanaInstructions(
           quotes[0],
@@ -185,6 +183,7 @@ export class AegisAgentService {
 
         // Create a Keypair from the private key
         const wallet = Keypair.fromSecretKey(privateKeyBytes);
+        console.log(String(wallet.publicKey));
         // 1. Create a new Transaction
         const transaction = new Transaction();
 
@@ -215,7 +214,7 @@ export class AegisAgentService {
           throw new Error('Transaction failed');
         }
 
-        return `https://explorer.solana.com/tx/${signature}`;
+        return `https://solscan.io/tx/${signature}`;
       } else {
         // **EVM FLOW**
         const quotes = await fetchQuote({
@@ -246,10 +245,7 @@ export class AegisAgentService {
           quotes[0],
           signer.address,
           destinationAddress,
-          {
-            evm: '0xB4b781F17d3E40976B653f1EA4DeD57bD0189654',
-            solana: 'Dfo4P23Au7U5ZdZV8myrh3j7gY4HKai7qoVop33EaKwd',
-          },
+          null,
           signer,
           null,
           null,
@@ -365,10 +361,14 @@ export class AegisAgentService {
         return null;
       }
 
-      // Find the token by symbol
-      const token = data[chain].find(
-        (t: any) => t.symbol.toLowerCase() === tokenSymbol.toLowerCase(),
-      );
+      // Find the token by symbol and ensure the name does not contain parentheses content
+      const token = data[chain].find((t: any) => {
+        const hasParentheses = /\(.*?\)/.test(t.name); // Check if name contains parentheses
+        return (
+          t.symbol.toLowerCase() === tokenSymbol.toLowerCase() &&
+          !hasParentheses
+        );
+      });
 
       if (!token) {
         console.error(`Token ${tokenSymbol} not found on chain ${chain}`);
@@ -399,10 +399,14 @@ export class AegisAgentService {
         return null;
       }
 
-      // Find the token by symbol
-      const token = data[chain].find(
-        (t: any) => t.symbol.toLowerCase() === tokenSymbol.toLowerCase(),
-      );
+      // Find the token by symbol and ensure the name does not contain parentheses content
+      const token = data[chain].find((t: any) => {
+        const hasParentheses = /\(.*?\)/.test(t.name); // Check if name contains parentheses
+        return (
+          t.symbol.toLowerCase() === tokenSymbol.toLowerCase() &&
+          !hasParentheses
+        );
+      });
 
       if (!token) {
         console.error(`Token ${tokenSymbol} not found on chain ${chain}`);
