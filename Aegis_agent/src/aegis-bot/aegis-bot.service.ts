@@ -980,277 +980,125 @@ export class AegisBotService {
           `You don't have any wallet connected`,
         );
       }
+
       const allTokens = await fetchAllTokenList(['native', 'erc20', 'spl']);
+      const tokenArrays = {};
 
-      const splTokens = (
-        await Promise.all(
-          allTokens['solana'].map(async (token) => {
-            if (token.mint === 'So11111111111111111111111111111111111111112') {
-              const { balance } = await this.walletService.getSolBalance(
-                user!.solanaWalletAddress,
-              );
+      // Helper function to process tokens for a network
+      const processTokens = async (
+        network: string,
+        tokens: any[],
+        rpc?: string,
+      ) => {
+        try {
+          return (
+            await Promise.all(
+              tokens.map(async (token) => {
+                try {
+                  if (
+                    token.mint ===
+                      'So11111111111111111111111111111111111111112' ||
+                    token.contract ===
+                      '0x0000000000000000000000000000000000000000'
+                  ) {
+                    const { balance } =
+                      network === 'solana'
+                        ? await this.walletService.getSolBalance(
+                            user!.solanaWalletAddress,
+                          )
+                        : await this.walletService.getNativeTokenBalance(
+                            user!.evmWalletAddress,
+                            rpc!,
+                          );
 
-              return {
-                name: token.symbol,
-                balance,
-                network: 'solana',
-                address: token.mint,
-              };
-            } else {
-              const { balance } = await this.walletService.getSPLTokenBalance(
-                user!.solanaWalletAddress,
-                token.mint,
-              );
+                    return {
+                      name: token.symbol,
+                      balance,
+                      network,
+                      address: token.mint || token.contract,
+                    };
+                  } else {
+                    const { balance } =
+                      network === 'solana'
+                        ? await this.walletService.getSPLTokenBalance(
+                            user!.solanaWalletAddress,
+                            token.mint,
+                          )
+                        : await this.walletService.getERC20Balance(
+                            user!.evmWalletAddress,
+                            token.contract,
+                            rpc!,
+                          );
 
-              if (balance > 0) {
-                return {
-                  name: token.symbol,
-                  balance,
-                  network: 'solana',
-                  address: token.mint,
-                };
-              }
-            }
-          }),
-        )
-      ).filter(Boolean);
+                    if (balance > 0) {
+                      return {
+                        name: token.symbol,
+                        balance,
+                        network,
+                        address: token.mint || token.contract,
+                      };
+                    }
+                  }
+                } catch (tokenError) {
+                  console.log(
+                    `Error fetching token ${token.symbol} on ${network}:`,
+                    tokenError,
+                  );
+                  return null; // Skip this token
+                }
+              }),
+            )
+          ).filter(Boolean);
+        } catch (networkError) {
+          console.log(`Error processing ${network} tokens:`, networkError);
+          return []; // Return empty array for this network
+        }
+      };
 
-      const ethereumTokens = (
-        await Promise.all(
-          allTokens['ethereum'].map(async (token) => {
-            if (
-              token.contract === '0x0000000000000000000000000000000000000000'
-            ) {
-              const { balance } =
-                await this.walletService.getNativeTokenBalance(
-                  user!.evmWalletAddress,
-                  process.env.ETHEREUM_RPC,
-                );
-              console.log(balance);
-              return {
-                name: token.symbol,
-                balance,
-                network: 'ethereum',
-                address: token.contract,
-              };
-            } else {
-              const { balance } = await this.walletService.getERC20Balance(
-                user!.evmWalletAddress,
-                token.contract,
-                process.env.ETHEREUM_RPC,
-              );
-
-              if (balance > 0) {
-                return {
-                  name: token.symbol,
-                  balance,
-                  network: 'ethereum',
-                  address: token.contract,
-                };
-              }
-            }
-          }),
-        )
-      ).filter(Boolean);
-
-      const baseTokens = (
-        await Promise.all(
-          allTokens['base'].map(async (token) => {
-            if (
-              token.contract === '0x0000000000000000000000000000000000000000'
-            ) {
-              const { balance } =
-                await this.walletService.getNativeTokenBalance(
-                  user!.evmWalletAddress,
-                  process.env.BASE_RPC,
-                );
-              console.log(balance);
-              return {
-                name: token.symbol,
-                balance,
-                network: 'base',
-                address: token.contract,
-              };
-            } else {
-              const { balance } = await this.walletService.getERC20Balance(
-                user!.evmWalletAddress,
-                token.contract,
-                process.env.BASE_RPC,
-              );
-
-              if (balance > 0) {
-                return {
-                  name: token.symbol,
-                  balance,
-                  network: 'base',
-                  address: token.contract,
-                };
-              }
-            }
-          }),
-        )
-      ).filter(Boolean);
-
-      const arbitrumTokens = (
-        await Promise.all(
-          allTokens['arbitrum'].map(async (token) => {
-            if (
-              token.contract === '0x0000000000000000000000000000000000000000'
-            ) {
-              const { balance } =
-                await this.walletService.getNativeTokenBalance(
-                  user!.evmWalletAddress,
-                  process.env.ARBITRUM_RPC,
-                );
-              console.log(balance);
-              return {
-                name: token.symbol,
-                balance,
-                network: 'arbitrum',
-                address: token.contract,
-              };
-            } else {
-              const { balance } = await this.walletService.getERC20Balance(
-                user!.evmWalletAddress,
-                token.contract,
-                process.env.ARBITRUM_RPC,
-              );
-
-              if (balance > 0) {
-                return {
-                  name: token.symbol,
-                  balance,
-                  network: 'arbitrum',
-                  address: token.contract,
-                };
-              }
-            }
-          }),
-        )
-      ).filter(Boolean);
-
-      const optimismTokens = (
-        await Promise.all(
-          allTokens['optimism'].map(async (token) => {
-            if (
-              token.contract === '0x0000000000000000000000000000000000000000'
-            ) {
-              const { balance } =
-                await this.walletService.getNativeTokenBalance(
-                  user!.evmWalletAddress,
-                  process.env.OPTIMISM_RPC,
-                );
-              console.log(balance);
-              return {
-                name: token.symbol,
-                balance,
-                network: 'optimism',
-                address: token.contract,
-              };
-            } else {
-              const { balance } = await this.walletService.getERC20Balance(
-                user!.evmWalletAddress,
-                token.contract,
-                process.env.OPTIMISM_RPC,
-              );
-
-              if (balance > 0) {
-                return {
-                  name: token.symbol,
-                  balance,
-                  network: 'optimism',
-                  address: token.contract,
-                };
-              }
-            }
-          }),
-        )
-      ).filter(Boolean);
-
-      const avalancheTokens = (
-        await Promise.all(
-          allTokens['avalanche'].map(async (token) => {
-            if (
-              token.contract === '0x0000000000000000000000000000000000000000'
-            ) {
-              const { balance } =
-                await this.walletService.getNativeTokenBalance(
-                  user!.evmWalletAddress,
-                  process.env.AVALANCHE_RPC,
-                );
-              console.log(balance);
-              return {
-                name: token.symbol,
-                balance,
-                network: 'avalanche',
-                address: token.contract,
-              };
-            } else {
-              const { balance } = await this.walletService.getERC20Balance(
-                user!.evmWalletAddress,
-                token.contract,
-                process.env.AVALANCHE_RPC,
-              );
-
-              if (balance > 0) {
-                return {
-                  name: token.symbol,
-                  balance,
-                  network: 'avalanche',
-                  address: token.contract,
-                };
-              }
-            }
-          }),
-        )
-      ).filter(Boolean);
-
-      const polygonTokens = (
-        await Promise.all(
-          allTokens['polygon'].map(async (token) => {
-            if (
-              token.contract === '0x0000000000000000000000000000000000000000'
-            ) {
-              const { balance } =
-                await this.walletService.getNativeTokenBalance(
-                  user!.evmWalletAddress,
-                  process.env.POLYGON_RPC,
-                );
-              console.log(balance);
-              return {
-                name: token.symbol,
-                balance,
-                network: 'polygon',
-                address: token.contract,
-              };
-            } else {
-              const { balance } = await this.walletService.getERC20Balance(
-                user!.evmWalletAddress,
-                token.contract,
-                process.env.POLYGON_RPC,
-              );
-
-              if (balance > 0) {
-                return {
-                  name: token.symbol,
-                  balance,
-                  network: 'polygon',
-                  address: token.contract,
-                };
-              }
-            }
-          }),
-        )
-      ).filter(Boolean);
+      // Process each network independently
+      tokenArrays['solana'] = await processTokens(
+        'solana',
+        allTokens['solana'],
+      );
+      tokenArrays['ethereum'] = await processTokens(
+        'ethereum',
+        allTokens['ethereum'],
+        process.env.ETHEREUM_RPC,
+      );
+      tokenArrays['base'] = await processTokens(
+        'base',
+        allTokens['base'],
+        process.env.BASE_RPC,
+      );
+      tokenArrays['arbitrum'] = await processTokens(
+        'arbitrum',
+        allTokens['arbitrum'],
+        process.env.ARBITRUM_RPC,
+      );
+      tokenArrays['optimism'] = await processTokens(
+        'optimism',
+        allTokens['optimism'],
+        process.env.OPTIMISM_RPC,
+      );
+      tokenArrays['avalanche'] = await processTokens(
+        'avalanche',
+        allTokens['avalanche'],
+        process.env.AVALANCHE_RPC,
+      );
+      tokenArrays['polygon'] = await processTokens(
+        'polygon',
+        allTokens['polygon'],
+        process.env.POLYGON_RPC,
+      );
 
       const allTokenBalance = [
-        ...ethereumTokens,
-        ...splTokens,
-        ...baseTokens,
-        ...arbitrumTokens,
-        ...optimismTokens,
-        ...avalancheTokens,
-        ...polygonTokens,
+        ...tokenArrays['ethereum'],
+        ...tokenArrays['solana'],
+        ...tokenArrays['base'],
+        ...tokenArrays['arbitrum'],
+        ...tokenArrays['optimism'],
+        ...tokenArrays['avalanche'],
+        ...tokenArrays['polygon'],
       ];
 
       if (showMarkUp) {
@@ -1271,7 +1119,7 @@ export class AegisBotService {
         return allTokenBalance;
       }
     } catch (error) {
-      console.log(error);
+      console.log('General error in showBalance:', error);
     }
   };
 
@@ -1537,7 +1385,7 @@ export class AegisBotService {
         address: string;
       }[];
       const allTokenBalance = await this.showBalance(user.chatId, false);
-
+      console.log(allTokenBalance);
       const geckoUrl = `https://api.geckoterminal.com/api/v2/networks`;
       const urls = (allTokenBalance as AllTokenBalanceType).map(
         (token) => `${geckoUrl}/${token.network}/tokens/${token.address}`,

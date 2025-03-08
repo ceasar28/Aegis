@@ -53,7 +53,7 @@ dotenv.config();
 
 @Injectable()
 export class AegisAgentService {
-  constructor() { }
+  constructor() {}
 
   async agentChat(prompt: string) {
     try {
@@ -166,7 +166,7 @@ export class AegisAgentService {
           connection,
           payer,
           new PublicKey(mintAddress),
-          payer.publicKey
+          payer.publicKey,
         );
 
         const swapTrx = await createSwapFromSolanaInstructions(
@@ -258,15 +258,15 @@ export class AegisAgentService {
         );
 
         const explorers: { [key: string]: string } = {
-          ethereum: "https://etherscan.io/tx/",
-          bsc: "https://bscscan.com/tx/",
-          polygon: "https://polygonscan.com/tx/",
-          avalanche: "https://snowtrace.io/tx/",
-          arbitrum: "https://arbiscan.io/tx/",
-          optimism: "https://optimistic.etherscan.io/tx/",
-          base: "https://basescan.org/tx/",
-          aptos: "https://explorer.aptoslabs.com/txn/",
-          sui: "https://suiexplorer.com/txblock/",
+          ethereum: 'https://etherscan.io/tx/',
+          bsc: 'https://bscscan.com/tx/',
+          polygon: 'https://polygonscan.com/tx/',
+          avalanche: 'https://snowtrace.io/tx/',
+          arbitrum: 'https://arbiscan.io/tx/',
+          optimism: 'https://optimistic.etherscan.io/tx/',
+          base: 'https://basescan.org/tx/',
+          aptos: 'https://explorer.aptoslabs.com/txn/',
+          sui: 'https://suiexplorer.com/txblock/',
         };
 
         const explorerUrl = explorers[fromChain];
@@ -274,12 +274,12 @@ export class AegisAgentService {
           throw new Error(`Unsupported chain: ${fromChain}`);
         }
 
-        if (typeof response === "string") {
-          console.log("Received string response:", response);
+        if (typeof response === 'string') {
+          console.log('Received string response:', response);
         } else if (response instanceof TransactionResponse) {
           return `${explorerUrl}${response.hash}`;
         } else {
-          console.error("Unexpected response type:", response);
+          console.error('Unexpected response type:', response);
         }
       }
     } catch (error) {
@@ -351,7 +351,7 @@ export class AegisAgentService {
       amount,
       fromChain: fromChain as ChainName,
       toChain: toChain as ChainName,
-      providerUrl
+      providerUrl,
     };
   }
 
@@ -521,7 +521,7 @@ export class AegisAgentService {
         fully_Diluted_Valuation:
           tokenData.data.attributes.fdv_usd ||
           parseFloat(tokenData.data.attributes.price_usd) *
-          parseFloat(tokenData.data.attributes.price_usd),
+            parseFloat(tokenData.data.attributes.price_usd),
         market_cap_usd: tokenData.data.attributes.market_cap_usd,
         volume_usd: tokenData.data.attributes.volume_usd.h24,
       };
