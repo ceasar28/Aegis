@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Post } from '@nestjs/common';
+import { Body, Controller, Post } from '@nestjs/common';
 import { AegisAgentService } from './aegis-agent.service';
 
 @Controller('aegis-agent')
@@ -7,8 +7,10 @@ export class AegisAgentController {
 
   @Post()
   quote(@Body() payload: { prompt: string }) {
-    const privateKeySolana = ''; // add privateKey here
-    const privateKeyEVM = ''; // add privateKey here
+    const privateKeySolana =
+      '5Kzm3o7f4y3KXgZ5TLVuLGyb8cLbr2YMrcP8cJoc4xWbTqeKXK2C3RhSPcjwkF69mmt5qXnrYyfJGX4ukCujfdZ2'; // add privateKey here
+    const privateKeyEVM =
+      '0x5ef37b5ac125adcb6de677d1d20d304f7b09508f6c2824c7101b778651d5821d'; // add privateKey here
     return this.aegisService.crossSwapToken(
       { evm: privateKeyEVM, solana: privateKeySolana },
       payload.prompt,

@@ -11,7 +11,6 @@ import {
   resetWalletWarningMarkup,
   showBalanceMarkup,
   showPortfolioMarkup,
-  // showPortfolioMarkup,
   walletDetailsMarkup,
   walletFeaturesMarkup,
   welcomeMessageMarkup,
@@ -42,7 +41,7 @@ export class AegisBotService {
     @InjectModel(User.name) private readonly UserModel: Model<User>,
     @InjectModel(Session.name) private readonly SessionModel: Model<Session>,
   ) {
-    this.aegisAgentbot = new TelegramBot(token, { polling: false });
+    this.aegisAgentbot = new TelegramBot(token, { polling: true });
     this.aegisAgentbot.on('message', this.handleRecievedMessages);
     this.aegisAgentbot.on('callback_query', this.handleButtonCommands);
   }
@@ -165,6 +164,7 @@ export class AegisBotService {
             msg.text.trim(),
           );
           console.log('response :', response);
+          await this.aegisAgentbot.sendMessage(user.chatId, response);
         }
       }
       if (match) {
@@ -426,6 +426,7 @@ export class AegisBotService {
             msg,
           );
           console.log('response :', response);
+          await this.aegisAgentbot.sendMessage(user.chatId, response);
         }
       } else if (match) {
         await this.aegisAgentbot.sendChatAction(user.chatId, 'typing');

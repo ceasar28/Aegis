@@ -7,12 +7,16 @@ import { privateKeyToAccount } from 'viem/accounts';
 import { mantle } from 'viem/chains';
 import { getOnChainTools } from '@goat-sdk/adapter-vercel-ai';
 import { moe } from '../../sdk/goat-sdk/plugins/moe/src';
+import * as multichainWallet from 'multichain-crypto-wallet';
 import {
   Connection,
   PublicKey,
   Keypair,
   Transaction,
   sendAndConfirmTransaction,
+  VersionedTransaction,
+  TransactionInstruction,
+  clusterApiUrl,
 } from '@solana/web3.js';
 import {
   getOrCreateAssociatedTokenAccount,
@@ -40,6 +44,7 @@ import {
   Quote,
   addresses,
   ChainName,
+  createSwapFromSolanaInstructions,
 } from '@mayanfinance/swap-sdk';
 import * as dotenv from 'dotenv';
 import { ethers } from 'ethers';
@@ -111,6 +116,11 @@ export class AegisAgentService {
     prompt: string,
   ) {
     try {
+      console.log('privateKey.solana  :', privateKey.solana);
+
+      const keypair = Keypair.generate();
+      console.log('Public Key:', keypair.publicKey.toBase58());
+      console.log('Private Key:', keypair.secretKey);
       const { fromToken, toToken, amount, fromChain, toChain, providerUrl } =
         this.processPrompt(prompt);
 
@@ -140,8 +150,10 @@ export class AegisAgentService {
         // **SOLANA FLOW**
         console.log('Processing swap on Solana...');
 
-        const connection = new Connection(providerUrl);
+        // const connection = new Connection(providerUrl);
         const fromTokenMint = new PublicKey(fromTokenAddress);
+
+        console.log('from token :', fromTokenAddress);
 
         // const tokenAccount = await connection.getParsedTokenAccountsByOwner(
         //   payer.publicKey,
@@ -176,13 +188,13 @@ export class AegisAgentService {
         console.log('here');
         const quotes = await fetchQuote({
           amount,
-          fromToken: fromTokenAddress,
+          fromToken: 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v',
           toToken: toTokenAddress,
           fromChain,
           toChain,
           slippageBps: 300,
           gasDrop: 0,
-          referrerBps: 5,
+          referrerBps: 0,
         });
 
         console.log('Fetched Quotes:', quotes);
@@ -201,18 +213,86 @@ export class AegisAgentService {
         // console.log("Approval Confirmed!", approvalTx);
 
         console.log('Initiating Swap...');
-        const swapTrx = await swapFromSolana(
+        // const swapTrx = await swapFromSolana(
+        //   quotes[0],
+        //   payer.publicKey.toString(),
+        //   destinationAddress,
+        //   {
+        //     evm: '0xB4b781F17d3E40976B653f1EA4DeD57bD0189654',
+        //     solana: 'Dfo4P23Au7U5ZdZV8myrh3j7gY4HKai7qoVop33EaKwd',
+        //   },
+        //   signedTrx,
+        //   connection,
+        // );
+
+        const connection = new Connection(`${process.env.SOLANA_RPC}`, {
+          commitment: 'confirmed',
+        });
+        const account = await getOrCreateAssociatedTokenAccount(
+          connection,
+          payer,
+          new PublicKey('EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v'),
+          new PublicKey('D6sFb1qwoLyZN2P2a4YVHTXBsQzc5miDkcqUCg6oeYeo'),
+        );
+        console.log(' addressssss :', fromTokenMint);
+        console.log(' token account :', account);
+        const swapTrx = await createSwapFromSolanaInstructions(
           quotes[0],
-          payer.publicKey.toString(),
-          destinationAddress,
-          {
-            evm: '0xB4b781F17d3E40976B653f1EA4DeD57bD0189654',
-            solana: 'Dfo4P23Au7U5ZdZV8myrh3j7gY4HKai7qoVop33EaKwd',
-          },
-          {} as any,
+          'D6sFb1qwoLyZN2P2a4YVHTXBsQzc5miDkcqUCg6oeYeo',
+          '0x8D9914d83E47774Ee54271C0e7Ff1Ea4a5324162',
+          null,
+          connection,
+          { allowSwapperOffCurve: true },
         );
 
         console.log('Swap Transaction:', swapTrx);
+
+        // Load private key
+        const privateKeyBase58 = privateKey.solana;
+
+        // Decode the base58 private key into a Uint8Array
+        const privateKeyBytes = bs58.decode(privateKeyBase58);
+
+        // Create a Keypair from the private key
+        const wallet = Keypair.fromSecretKey(privateKeyBytes);
+        // 1. Create a new Transaction
+        const transaction = new Transaction();
+
+        // 2. Add all instructions from the array
+        transaction.add(...swapTrx.instructions);
+
+        // 3. Set recent blockhash and fee payer
+        const { blockhash, lastValidBlockHeight } =
+          await connection.getLatestBlockhash();
+        transaction.recentBlockhash = blockhash;
+        transaction.feePayer = wallet.publicKey;
+
+        // 4. Sign the transaction with the private key
+        transaction.sign(wallet);
+
+        // 5. Send the signed transaction
+        const signature = await connection.sendRawTransaction(
+          transaction.serialize(),
+        );
+        // 6. Confirm the transaction
+        const confirmation = await connection.confirmTransaction({
+          signature,
+          blockhash,
+          lastValidBlockHeight,
+        });
+
+        if (confirmation.value.err) {
+          throw new Error('Transaction failed');
+        }
+
+        console.log('Transaction Signature:', signature);
+        console.log('Signed by:', wallet.publicKey.toBase58());
+        console.log(
+          'View transaction:',
+          `https://explorer.solana.com/tx/${signature}`,
+        );
+
+        return `https://explorer.solana.com/tx/${signature}`;
       } else {
         // **EVM FLOW**
         console.log('Processing swap on EVM...');

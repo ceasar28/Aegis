@@ -6,6 +6,8 @@ import {
   createHash,
   randomBytes,
 } from 'crypto';
+import { Keypair } from '@solana/web3.js';
+import bs58 from 'bs58';
 import * as dotenv from 'dotenv';
 
 dotenv.config();
@@ -43,11 +45,22 @@ export class WalletService {
     return wallet;
   };
 
+  // createSolanaWallet = (): Record<string, any> => {
+  //   const wallet = multichainWallet.createWallet({
+  //     network: 'solana',
+  //   });
+  //   return wallet;
+  // };
+
   createSolanaWallet = (): Record<string, any> => {
-    const wallet = multichainWallet.createWallet({
-      network: 'solana',
-    });
-    return wallet;
+    const keypair = Keypair.generate();
+    const privateKey = keypair.secretKey;
+    const publicKey = keypair.publicKey;
+
+    return {
+      address: publicKey.toBase58(),
+      privateKey: bs58.encode(privateKey),
+    };
   };
 
   getEvmWalletFromMnemonic = (mnemonic: string): Record<string, any> => {
@@ -81,12 +94,12 @@ export class WalletService {
   getSolanaAddressFromPrivateKey = (
     privateKey: string,
   ): Record<string, string> => {
-    const wallet = multichainWallet.getAddressFromPrivateKey({
-      privateKey,
-      network: 'solana',
-    });
-
-    return wallet;
+    const privateKeyBytes = bs58.decode(privateKey);
+    const wallet = Keypair.fromSecretKey(privateKeyBytes);
+    return {
+      address: wallet.publicKey.toBase58(),
+      privateKey: bs58.encode(wallet.secretKey),
+    };
   };
 
   encryptEvmWallet = async (
