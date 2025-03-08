@@ -53,7 +53,7 @@ dotenv.config();
 
 @Injectable()
 export class AegisAgentService {
-  constructor() {}
+  constructor() { }
 
   async agentChat(prompt: string) {
     try {
@@ -116,11 +116,7 @@ export class AegisAgentService {
     prompt: string,
   ) {
     try {
-      console.log('privateKey.solana  :', privateKey.solana);
-
       const keypair = Keypair.generate();
-      console.log('Public Key:', keypair.publicKey.toBase58());
-      console.log('Private Key:', keypair.secretKey);
       const { fromToken, toToken, amount, fromChain, toChain, providerUrl } =
         this.processPrompt(prompt);
 
@@ -148,44 +144,8 @@ export class AegisAgentService {
 
       if (fromChain === 'solana') {
         // **SOLANA FLOW**
-        console.log('Processing swap on Solana...');
-
-        // const connection = new Connection(providerUrl);
         const fromTokenMint = new PublicKey(fromTokenAddress);
 
-        console.log('from token :', fromTokenAddress);
-
-        // const tokenAccount = await connection.getParsedTokenAccountsByOwner(
-        //   payer.publicKey,
-        //   { mint: fromTokenMint }
-        // );
-
-        // // If no associated token account exists, create one
-        // let userTokenAccount;
-        // if (tokenAccount.value.length === 0) {
-        //   console.log("No associated token account found. Creating one...");
-        //   userTokenAccount = await getAssociatedTokenAddress(
-        //     fromTokenMint,
-        //     payer.publicKey
-        //   );
-
-        //   const transaction = new Transaction().add(
-        //     createAssociatedTokenAccountInstruction(
-        //       payer.publicKey, // Payer
-        //       userTokenAccount, // New Token Account
-        //       payer.publicKey, // Owner
-        //       fromTokenMint // Token Mint
-        //     )
-        //   );
-
-        //   await sendAndConfirmTransaction(connection, transaction, [payer]);
-        //   console.log("Created associated token account:", userTokenAccount.toString());
-        // } else {
-        //   userTokenAccount = tokenAccount.value[0].pubkey;
-        //   console.log("Using existing associated token account:", userTokenAccount.toString());
-        // }
-
-        console.log('here');
         const quotes = await fetchQuote({
           amount,
           fromToken: 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v',
@@ -197,55 +157,26 @@ export class AegisAgentService {
           referrerBps: 0,
         });
 
-        console.log('Fetched Quotes:', quotes);
-
-        // const approvalTx = await approveChecked(
-        //   connection,
-        //   payer,
-        //   fromTokenMint,
-        //   payer.publicKey,
-        //   new PublicKey(addresses.MAYAN_FORWARDER_CONTRACT),
-        //   payer,
-        //   amount,
-        //   6 // Assuming USDC or similar token with 6 decimals
-        // );
-
-        // console.log("Approval Confirmed!", approvalTx);
-
-        console.log('Initiating Swap...');
-        // const swapTrx = await swapFromSolana(
-        //   quotes[0],
-        //   payer.publicKey.toString(),
-        //   destinationAddress,
-        //   {
-        //     evm: '0xB4b781F17d3E40976B653f1EA4DeD57bD0189654',
-        //     solana: 'Dfo4P23Au7U5ZdZV8myrh3j7gY4HKai7qoVop33EaKwd',
-        //   },
-        //   signedTrx,
-        //   connection,
-        // );
-
         const connection = new Connection(`${process.env.SOLANA_RPC}`, {
           commitment: 'confirmed',
         });
+
+        const mintAddress = await this.getMintAddress('solana', fromToken);
         const account = await getOrCreateAssociatedTokenAccount(
           connection,
           payer,
-          new PublicKey('EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v'),
-          new PublicKey('D6sFb1qwoLyZN2P2a4YVHTXBsQzc5miDkcqUCg6oeYeo'),
+          new PublicKey(mintAddress),
+          payer.publicKey
         );
-        console.log(' addressssss :', fromTokenMint);
-        console.log(' token account :', account);
+
         const swapTrx = await createSwapFromSolanaInstructions(
           quotes[0],
-          'D6sFb1qwoLyZN2P2a4YVHTXBsQzc5miDkcqUCg6oeYeo',
-          '0x8D9914d83E47774Ee54271C0e7Ff1Ea4a5324162',
+          String(payer.publicKey),
+          destinationAddress,
           null,
           connection,
           { allowSwapperOffCurve: true },
         );
-
-        console.log('Swap Transaction:', swapTrx);
 
         // Load private key
         const privateKeyBase58 = privateKey.solana;
@@ -285,18 +216,9 @@ export class AegisAgentService {
           throw new Error('Transaction failed');
         }
 
-        console.log('Transaction Signature:', signature);
-        console.log('Signed by:', wallet.publicKey.toBase58());
-        console.log(
-          'View transaction:',
-          `https://explorer.solana.com/tx/${signature}`,
-        );
-
         return `https://explorer.solana.com/tx/${signature}`;
       } else {
         // **EVM FLOW**
-        console.log('Processing swap on EVM...');
-
         const quotes = await fetchQuote({
           amount,
           fromToken: fromTokenAddress,
@@ -307,8 +229,6 @@ export class AegisAgentService {
           gasDrop: 0,
           referrerBps: 5,
         });
-
-        console.log('Fetched Quotes:', quotes);
 
         // Approve Token Transfer
         const tokenContract = new ethers.Contract(
@@ -322,10 +242,8 @@ export class AegisAgentService {
         );
 
         await approvalTx.wait();
-        console.log('Approval Confirmed!');
 
-        console.log('Initiating Swap...');
-        const swapTrx = await swapFromEvm(
+        await swapFromEvm(
           quotes[0],
           signer.address,
           destinationAddress,
@@ -338,8 +256,6 @@ export class AegisAgentService {
           null,
           null,
         );
-
-        console.log('Swap Transaction:', swapTrx);
       }
     } catch (error) {
       console.error('Error in crossSwapToken:', error);
@@ -410,7 +326,7 @@ export class AegisAgentService {
       amount,
       fromChain: fromChain as ChainName,
       toChain: toChain as ChainName,
-      providerUrl,
+      providerUrl
     };
   }
 
@@ -439,6 +355,38 @@ export class AegisAgentService {
       return token.contract === '0x0000000000000000000000000000000000000000'
         ? token.wrappedAddress
         : token.contract;
+    } catch (error) {
+      console.error(
+        `Error fetching token address for ${tokenSymbol} on ${chain}:`,
+        error,
+      );
+      return null;
+    }
+  }
+
+  async getMintAddress(chain: string, tokenSymbol: string) {
+    try {
+      const url = `https://price-api.mayan.finance/v3/tokens?chain=${chain}`;
+      const response = await fetch(url);
+      const data = await response.json();
+
+      if (!data[chain]) {
+        console.error(`No data found for chain: ${chain}`);
+        return null;
+      }
+
+      // Find the token by symbol
+      const token = data[chain].find(
+        (t: any) => t.symbol.toLowerCase() === tokenSymbol.toLowerCase(),
+      );
+
+      if (!token) {
+        console.error(`Token ${tokenSymbol} not found on chain ${chain}`);
+        return null;
+      }
+
+      // Use wrapped address if it's a native token
+      return token.mint ? token.mint : null;
     } catch (error) {
       console.error(
         `Error fetching token address for ${tokenSymbol} on ${chain}:`,
@@ -548,7 +496,7 @@ export class AegisAgentService {
         fully_Diluted_Valuation:
           tokenData.data.attributes.fdv_usd ||
           parseFloat(tokenData.data.attributes.price_usd) *
-            parseFloat(tokenData.data.attributes.price_usd),
+          parseFloat(tokenData.data.attributes.price_usd),
         market_cap_usd: tokenData.data.attributes.market_cap_usd,
         volume_usd: tokenData.data.attributes.volume_usd.h24,
       };
