@@ -47,7 +47,7 @@ import {
   createSwapFromSolanaInstructions,
 } from '@mayanfinance/swap-sdk';
 import * as dotenv from 'dotenv';
-import { ethers } from 'ethers';
+import { ethers, TransactionResponse } from 'ethers';
 import { ERC20_ABI } from '@sdk/goat-sdk/plugins/erc20/src/abi';
 dotenv.config();
 
@@ -243,7 +243,7 @@ export class AegisAgentService {
 
         await approvalTx.wait();
 
-        await swapFromEvm(
+        const response = await swapFromEvm(
           quotes[0],
           signer.address,
           destinationAddress,
@@ -256,6 +256,31 @@ export class AegisAgentService {
           null,
           null,
         );
+
+        const explorers: { [key: string]: string } = {
+          ethereum: "https://etherscan.io/tx/",
+          bsc: "https://bscscan.com/tx/",
+          polygon: "https://polygonscan.com/tx/",
+          avalanche: "https://snowtrace.io/tx/",
+          arbitrum: "https://arbiscan.io/tx/",
+          optimism: "https://optimistic.etherscan.io/tx/",
+          base: "https://basescan.org/tx/",
+          aptos: "https://explorer.aptoslabs.com/txn/",
+          sui: "https://suiexplorer.com/txblock/",
+        };
+
+        const explorerUrl = explorers[fromChain];
+        if (!explorerUrl) {
+          throw new Error(`Unsupported chain: ${fromChain}`);
+        }
+
+        if (typeof response === "string") {
+          console.log("Received string response:", response);
+        } else if (response instanceof TransactionResponse) {
+          return `${explorerUrl}${response.hash}`;
+        } else {
+          console.error("Unexpected response type:", response);
+        }
       }
     } catch (error) {
       console.error('Error in crossSwapToken:', error);
