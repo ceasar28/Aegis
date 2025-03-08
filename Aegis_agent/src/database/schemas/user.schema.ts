@@ -26,17 +26,18 @@ export class User {
   @Prop()
   linkCode: string;
 
-  @Prop({ default: 0 })
-  upperThreshold: string;
+  @Prop({ default: 5 }) // Default threshold of 5%
+  upperThreshold: number;
 
-  @Prop({ default: 0 })
-  lowerThreshold: string;
+  @Prop({ default: 5 }) // Default threshold of 5%
+  lowerThreshold: number;
 
-  @Prop({ default: 0 })
-  usdcAllocation: string;
-
-  @Prop({ default: 0 })
-  modeAllocation: string;
+  @Prop({
+    type: Map,
+    of: Number,
+    default: () => new Map<string, number>(),
+  })
+  targetAllocations: Map<string, number>; // {"MNT": 30, "USDC": 40, "MOE": 30}
 
   @Prop({ default: false })
   rebalanceEnabled: boolean;
