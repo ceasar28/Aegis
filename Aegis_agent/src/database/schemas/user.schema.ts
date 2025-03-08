@@ -40,6 +40,9 @@ export class User {
 
   @Prop({ default: false })
   rebalanceEnabled: boolean;
+
+  @Prop({ default: true })
+  enableAgenticAutoSwap: boolean;
 }
 
 export const UserSchema = SchemaFactory.createForClass(User);

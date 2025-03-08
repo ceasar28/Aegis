@@ -572,6 +572,28 @@ export class AegisBotService {
           }
           return;
 
+        case '/disableAgenticSwap':
+          if (user && user.enableAgenticAutoSwap) {
+            await this.UserModel.updateOne(
+              { chatId },
+              { enableAgenticAutoSwap: false },
+            );
+            return this.aegisAgentbot.sendMessage(
+              chatId,
+              `Agentic auto swap mode disabled`,
+            );
+          } else if (user && !user.enableAgenticAutoSwap) {
+            await this.UserModel.updateOne(
+              { chatId },
+              { enableAgenticAutoSwap: true },
+            );
+            return this.aegisAgentbot.sendMessage(
+              chatId,
+              `Agentic auto swap mode enabled`,
+            );
+          }
+          return;
+
         case '/createWallet':
           // check if user already have a wallet
           if (user!.evmWalletAddress || user!.solanaWalletAddress) {
@@ -1026,7 +1048,205 @@ export class AegisBotService {
         )
       ).filter(Boolean);
 
-      const allTokenBalance = [...ethereumTokens, ...splTokens];
+      const baseTokens = (
+        await Promise.all(
+          allTokens['base'].map(async (token) => {
+            if (
+              token.contract === '0x0000000000000000000000000000000000000000'
+            ) {
+              const { balance } =
+                await this.walletService.getNativeTokenBalance(
+                  user!.evmWalletAddress,
+                  process.env.BASE_RPC,
+                );
+              console.log(balance);
+              return {
+                name: token.symbol,
+                balance,
+                network: 'base',
+                address: token.contract,
+              };
+            } else {
+              const { balance } = await this.walletService.getERC20Balance(
+                user!.evmWalletAddress,
+                token.contract,
+                process.env.BASE_RPC,
+              );
+
+              if (balance > 0) {
+                return {
+                  name: token.symbol,
+                  balance,
+                  network: 'base',
+                  address: token.contract,
+                };
+              }
+            }
+          }),
+        )
+      ).filter(Boolean);
+
+      const arbitrumTokens = (
+        await Promise.all(
+          allTokens['arbitrum'].map(async (token) => {
+            if (
+              token.contract === '0x0000000000000000000000000000000000000000'
+            ) {
+              const { balance } =
+                await this.walletService.getNativeTokenBalance(
+                  user!.evmWalletAddress,
+                  process.env.ARBITRUM_RPC,
+                );
+              console.log(balance);
+              return {
+                name: token.symbol,
+                balance,
+                network: 'arbitrum',
+                address: token.contract,
+              };
+            } else {
+              const { balance } = await this.walletService.getERC20Balance(
+                user!.evmWalletAddress,
+                token.contract,
+                process.env.ARBITRUM_RPC,
+              );
+
+              if (balance > 0) {
+                return {
+                  name: token.symbol,
+                  balance,
+                  network: 'arbitrum',
+                  address: token.contract,
+                };
+              }
+            }
+          }),
+        )
+      ).filter(Boolean);
+
+      const optimismTokens = (
+        await Promise.all(
+          allTokens['optimism'].map(async (token) => {
+            if (
+              token.contract === '0x0000000000000000000000000000000000000000'
+            ) {
+              const { balance } =
+                await this.walletService.getNativeTokenBalance(
+                  user!.evmWalletAddress,
+                  process.env.OPTIMISM_RPC,
+                );
+              console.log(balance);
+              return {
+                name: token.symbol,
+                balance,
+                network: 'optimism',
+                address: token.contract,
+              };
+            } else {
+              const { balance } = await this.walletService.getERC20Balance(
+                user!.evmWalletAddress,
+                token.contract,
+                process.env.OPTIMISM_RPC,
+              );
+
+              if (balance > 0) {
+                return {
+                  name: token.symbol,
+                  balance,
+                  network: 'optimism',
+                  address: token.contract,
+                };
+              }
+            }
+          }),
+        )
+      ).filter(Boolean);
+
+      const avalancheTokens = (
+        await Promise.all(
+          allTokens['avalanche'].map(async (token) => {
+            if (
+              token.contract === '0x0000000000000000000000000000000000000000'
+            ) {
+              const { balance } =
+                await this.walletService.getNativeTokenBalance(
+                  user!.evmWalletAddress,
+                  process.env.AVALANCHE_RPC,
+                );
+              console.log(balance);
+              return {
+                name: token.symbol,
+                balance,
+                network: 'avalanche',
+                address: token.contract,
+              };
+            } else {
+              const { balance } = await this.walletService.getERC20Balance(
+                user!.evmWalletAddress,
+                token.contract,
+                process.env.AVALANCHE_RPC,
+              );
+
+              if (balance > 0) {
+                return {
+                  name: token.symbol,
+                  balance,
+                  network: 'avalanche',
+                  address: token.contract,
+                };
+              }
+            }
+          }),
+        )
+      ).filter(Boolean);
+
+      const polygonTokens = (
+        await Promise.all(
+          allTokens['polygon'].map(async (token) => {
+            if (
+              token.contract === '0x0000000000000000000000000000000000000000'
+            ) {
+              const { balance } =
+                await this.walletService.getNativeTokenBalance(
+                  user!.evmWalletAddress,
+                  process.env.POLYGON_RPC,
+                );
+              console.log(balance);
+              return {
+                name: token.symbol,
+                balance,
+                network: 'polygon',
+                address: token.contract,
+              };
+            } else {
+              const { balance } = await this.walletService.getERC20Balance(
+                user!.evmWalletAddress,
+                token.contract,
+                process.env.POLYGON_RPC,
+              );
+
+              if (balance > 0) {
+                return {
+                  name: token.symbol,
+                  balance,
+                  network: 'polygon',
+                  address: token.contract,
+                };
+              }
+            }
+          }),
+        )
+      ).filter(Boolean);
+
+      const allTokenBalance = [
+        ...ethereumTokens,
+        ...splTokens,
+        ...baseTokens,
+        ...arbitrumTokens,
+        ...optimismTokens,
+        ...avalancheTokens,
+        ...polygonTokens,
+      ];
 
       const showBalance = await showBalanceMarkup(allTokenBalance);
       if (showBalance) {
