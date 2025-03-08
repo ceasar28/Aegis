@@ -62,9 +62,19 @@ export class AegisBotService {
       }
 
       // Handle text inputs if not a command
-      if (msg.text !== '/start' && msg.text !== '/menu' && session) {
+      if (
+        msg.text !== '/start' &&
+        msg.text !== '/menu' &&
+        msg.text !== '/balance' &&
+        session
+      ) {
         return this.handleUserTextInputs(msg, session!);
-      } else if (msg.text !== '/start' && msg.text !== '/menu' && !session) {
+      } else if (
+        msg.text !== '/start' &&
+        msg.text !== '/menu' &&
+        msg.text !== '/balance' &&
+        !session
+      ) {
         return this.handleAgentprompts(user, msg.text.trim());
       }
       const command = msg.text!;
@@ -115,6 +125,9 @@ export class AegisBotService {
             },
           );
         }
+      }
+      if (command === '/balance') {
+        await this.showBalance(msg.chat.id);
       }
     } catch (error) {
       console.error(error);
