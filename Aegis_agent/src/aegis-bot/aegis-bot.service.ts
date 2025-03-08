@@ -23,12 +23,6 @@ import { fetchAllTokenList } from '@mayanfinance/swap-sdk';
 
 const token = process.env.TELEGRAM_TOKEN;
 
-// const USDT_ADDRESS_MANTLE = process.env.USDT_ADDRESS_MANTLE;
-// const USDC_ADDRESS_MANTLE = process.env.USDC_ADDRESS_MANTLE;
-// const WMNT_ADDRESS = process.env.WMNT_ADDRESS;
-// // const MNT_ADDRESS = process.env.MNT_ADDRESS;
-// const MOE_ADDRESS = process.env.MOE_ADDRESS;
-
 @Injectable()
 export class AegisBotService {
   private readonly aegisAgentbot: TelegramBot;
@@ -216,19 +210,17 @@ export class AegisBotService {
         );
 
         console.log(Allocation);
-        if (Allocation.allocation1 && Allocation.allocation2) {
+        if (Allocation) {
           await this.UserModel.updateOne(
             { chatId: msg.chat.id },
-            {
-              usdcAllocation: Allocation.allocation1,
-              modeAllocation: Allocation.allocation2,
-            },
+            { $set: { targetAllocations: Allocation } },
+            { upsert: true },
           );
         }
         await this.SessionModel.deleteMany({ chatId: msg.chat.id });
         await this.aegisAgentbot.sendMessage(
           msg.chat.id,
-          `Allocation succesfully set\n- USDC :${Allocation.allocation1}%\n- MOE : ${Allocation.allocation2} %`,
+          `Allocation succesfully set\n- USDC :${Allocation} %`,
         );
       }
 
@@ -488,28 +480,41 @@ export class AegisBotService {
     console.log(msg);
     await this.aegisAgentbot.sendChatAction(user.chatId, 'typing');
     try {
-      // const encryptedWallet = await this.walletService.decryptEvmWallet(
-      //   `${process.env.DEFAULT_WALLET_PIN}`,
-      //   user.walletDetails,
-      // );
-      // console.log(encryptedWallet);
-      // if (encryptedWallet.privateKey) {
-      //   const response = await this.aegisAgentService.swapToken(
-      //     encryptedWallet.privateKey,
-      //     msg,
-      //   );
-      //   if (response) {
-      //     const regex = /0x[a-fA-F0-9]{64}/g;
-      //     const matches = response.match(regex);
-      //     return await this.aegisAgentbot.sendMessage(
-      //       user.chatId,
-      //       `🔔Rebalance Alert🔔\n\n${response}.\n${matches[0] ? `View on mantlescan [${matches[0]}](https://mantlescan.xyz/tx/${matches[0]})` : ''}`,
-      //       {
-      //         parse_mode: 'Markdown',
-      //       },
-      //     );
-      //   }
-      // }
+      const encryptedEvmWallet = await this.walletService.decryptEvmWallet(
+        `${process.env.DEFAULT_WALLET_PIN}`,
+        user.evmWalletDetails,
+      );
+
+      const encryptedSolanaWallet = await this.walletService.decryptEvmWallet(
+        `${process.env.DEFAULT_WALLET_PIN}`,
+        user.solanaWalletDetails,
+      );
+
+      if (encryptedEvmWallet.privateKey || encryptedSolanaWallet.privateKey) {
+        // const response = await this.aegisAgentService.swapToken(
+        //   encryptedWallet.privateKey,
+        //   msg,
+        // );
+
+        const response = await this.aegisAgentService.crossSwapToken(
+          {
+            evm: encryptedEvmWallet.privateKey,
+            solana: encryptedSolanaWallet.privateKey,
+          },
+          msg,
+        );
+        if (response) {
+          // const regex = /0x[a-fA-F0-9]{64}/g;
+          // const matches = response.match(regex);
+          return await this.aegisAgentbot.sendMessage(
+            user.chatId,
+            `🔔Rebalance Alert🔔\n\n${msg}}`,
+            {
+              parse_mode: 'Markdown',
+            },
+          );
+        }
+      }
     } catch (error) {
       console.log(error);
     }
@@ -568,6 +573,28 @@ export class AegisBotService {
             return this.aegisAgentbot.sendMessage(
               chatId,
               ` Rebalancing Disabled`,
+            );
+          }
+          return;
+
+        case '/disableAgenticSwap':
+          if (user && user.enableAgenticAutoSwap) {
+            await this.UserModel.updateOne(
+              { chatId },
+              { enableAgenticAutoSwap: false },
+            );
+            return this.aegisAgentbot.sendMessage(
+              chatId,
+              `Agentic auto swap mode disabled`,
+            );
+          } else if (user && !user.enableAgenticAutoSwap) {
+            await this.UserModel.updateOne(
+              { chatId },
+              { enableAgenticAutoSwap: true },
+            );
+            return this.aegisAgentbot.sendMessage(
+              chatId,
+              `Agentic auto swap mode enabled`,
             );
           }
           return;
@@ -943,7 +970,7 @@ export class AegisBotService {
     }
   };
 
-  showBalance = async (chatId: TelegramBot.ChatId) => {
+  showBalance = async (chatId: TelegramBot.ChatId, showMarkUp = true) => {
     try {
       await this.aegisAgentbot.sendChatAction(chatId, 'typing');
       const user = await this.UserModel.findOne({ chatId: chatId });
@@ -1026,20 +1053,222 @@ export class AegisBotService {
         )
       ).filter(Boolean);
 
-      const allTokenBalance = [...ethereumTokens, ...splTokens];
+      const baseTokens = (
+        await Promise.all(
+          allTokens['base'].map(async (token) => {
+            if (
+              token.contract === '0x0000000000000000000000000000000000000000'
+            ) {
+              const { balance } =
+                await this.walletService.getNativeTokenBalance(
+                  user!.evmWalletAddress,
+                  process.env.BASE_RPC,
+                );
+              console.log(balance);
+              return {
+                name: token.symbol,
+                balance,
+                network: 'base',
+                address: token.contract,
+              };
+            } else {
+              const { balance } = await this.walletService.getERC20Balance(
+                user!.evmWalletAddress,
+                token.contract,
+                process.env.BASE_RPC,
+              );
 
-      const showBalance = await showBalanceMarkup(allTokenBalance);
-      if (showBalance) {
-        const replyMarkup = { inline_keyboard: showBalance.keyboard };
+              if (balance > 0) {
+                return {
+                  name: token.symbol,
+                  balance,
+                  network: 'base',
+                  address: token.contract,
+                };
+              }
+            }
+          }),
+        )
+      ).filter(Boolean);
 
-        return await this.aegisAgentbot.sendMessage(
-          chatId,
-          showBalance.message,
-          {
-            parse_mode: 'HTML',
-            reply_markup: replyMarkup,
-          },
-        );
+      const arbitrumTokens = (
+        await Promise.all(
+          allTokens['arbitrum'].map(async (token) => {
+            if (
+              token.contract === '0x0000000000000000000000000000000000000000'
+            ) {
+              const { balance } =
+                await this.walletService.getNativeTokenBalance(
+                  user!.evmWalletAddress,
+                  process.env.ARBITRUM_RPC,
+                );
+              console.log(balance);
+              return {
+                name: token.symbol,
+                balance,
+                network: 'arbitrum',
+                address: token.contract,
+              };
+            } else {
+              const { balance } = await this.walletService.getERC20Balance(
+                user!.evmWalletAddress,
+                token.contract,
+                process.env.ARBITRUM_RPC,
+              );
+
+              if (balance > 0) {
+                return {
+                  name: token.symbol,
+                  balance,
+                  network: 'arbitrum',
+                  address: token.contract,
+                };
+              }
+            }
+          }),
+        )
+      ).filter(Boolean);
+
+      const optimismTokens = (
+        await Promise.all(
+          allTokens['optimism'].map(async (token) => {
+            if (
+              token.contract === '0x0000000000000000000000000000000000000000'
+            ) {
+              const { balance } =
+                await this.walletService.getNativeTokenBalance(
+                  user!.evmWalletAddress,
+                  process.env.OPTIMISM_RPC,
+                );
+              console.log(balance);
+              return {
+                name: token.symbol,
+                balance,
+                network: 'optimism',
+                address: token.contract,
+              };
+            } else {
+              const { balance } = await this.walletService.getERC20Balance(
+                user!.evmWalletAddress,
+                token.contract,
+                process.env.OPTIMISM_RPC,
+              );
+
+              if (balance > 0) {
+                return {
+                  name: token.symbol,
+                  balance,
+                  network: 'optimism',
+                  address: token.contract,
+                };
+              }
+            }
+          }),
+        )
+      ).filter(Boolean);
+
+      const avalancheTokens = (
+        await Promise.all(
+          allTokens['avalanche'].map(async (token) => {
+            if (
+              token.contract === '0x0000000000000000000000000000000000000000'
+            ) {
+              const { balance } =
+                await this.walletService.getNativeTokenBalance(
+                  user!.evmWalletAddress,
+                  process.env.AVALANCHE_RPC,
+                );
+              console.log(balance);
+              return {
+                name: token.symbol,
+                balance,
+                network: 'avalanche',
+                address: token.contract,
+              };
+            } else {
+              const { balance } = await this.walletService.getERC20Balance(
+                user!.evmWalletAddress,
+                token.contract,
+                process.env.AVALANCHE_RPC,
+              );
+
+              if (balance > 0) {
+                return {
+                  name: token.symbol,
+                  balance,
+                  network: 'avalanche',
+                  address: token.contract,
+                };
+              }
+            }
+          }),
+        )
+      ).filter(Boolean);
+
+      const polygonTokens = (
+        await Promise.all(
+          allTokens['polygon'].map(async (token) => {
+            if (
+              token.contract === '0x0000000000000000000000000000000000000000'
+            ) {
+              const { balance } =
+                await this.walletService.getNativeTokenBalance(
+                  user!.evmWalletAddress,
+                  process.env.POLYGON_RPC,
+                );
+              console.log(balance);
+              return {
+                name: token.symbol,
+                balance,
+                network: 'polygon',
+                address: token.contract,
+              };
+            } else {
+              const { balance } = await this.walletService.getERC20Balance(
+                user!.evmWalletAddress,
+                token.contract,
+                process.env.POLYGON_RPC,
+              );
+
+              if (balance > 0) {
+                return {
+                  name: token.symbol,
+                  balance,
+                  network: 'polygon',
+                  address: token.contract,
+                };
+              }
+            }
+          }),
+        )
+      ).filter(Boolean);
+
+      const allTokenBalance = [
+        ...ethereumTokens,
+        ...splTokens,
+        ...baseTokens,
+        ...arbitrumTokens,
+        ...optimismTokens,
+        ...avalancheTokens,
+        ...polygonTokens,
+      ];
+
+      if (showMarkUp) {
+        const showBalance = await showBalanceMarkup(allTokenBalance);
+        if (showBalance) {
+          const replyMarkup = { inline_keyboard: showBalance.keyboard };
+
+          return await this.aegisAgentbot.sendMessage(
+            chatId,
+            showBalance.message,
+            {
+              parse_mode: 'HTML',
+              reply_markup: replyMarkup,
+            },
+          );
+        }
+      } else {
+        return allTokenBalance;
       }
     } catch (error) {
       console.log(error);
@@ -1255,7 +1484,7 @@ export class AegisBotService {
       );
       const promptId = await this.aegisAgentbot.sendMessage(
         chatId,
-        'Input your Target  allocation % for usdc and moe. e.g 60% 40%',
+        `Input your Target  allocation %: e.g: USDC:40,TRUMP:30,BOBO:20`,
         {
           reply_markup: {
             force_reply: true,
@@ -1278,7 +1507,7 @@ export class AegisBotService {
       );
       const promptId = await this.aegisAgentbot.sendMessage(
         chatId,
-        'Input the upper and lower threshold trigger % eg: 45% 35%',
+        'Input the upper and lower threshold trigger % eg: 5% 5%',
         {
           reply_markup: {
             force_reply: true,
@@ -1295,168 +1524,238 @@ export class AegisBotService {
   getPortfolio = async (linkCode: string) => {
     console.log(linkCode);
     try {
-      // const user = await this.UserModel.findOne({ linkCode });
-      // if (!user?.walletAddress) {
-      //   return { message: ` you don't have a wallet connected on the bot` };
-      // }
-      // const mntBalance = await this.walletService.getEthBalance(
-      //   user!.walletAddress,
-      // );
-      // const usdcBalance = await this.walletService.getERC20Balance(
-      //   user!.walletAddress,
-      //   USDC_ADDRESS_MANTLE,
-      // );
-      // const usdtBalance = await this.walletService.getERC20Balance(
-      //   user!.walletAddress,
-      //   USDT_ADDRESS_MANTLE,
-      // );
-      // const moeBalance = await this.walletService.getERC20Balance(
-      //   user!.walletAddress,
-      //   MOE_ADDRESS,
-      // );
-      // const geckoUrl = `https://api.geckoterminal.com/api/v2/networks/mantle/tokens`;
-      // const urls = [
-      //   `${geckoUrl}/0x78c1b0C915c4FAA5FffA6CAbf0219DA63d7f4cb8`,
-      //   `${geckoUrl}/0x09Bc4E0D864854c6aFB6eB9A9cdF58aC190D0dF9`,
-      //   `${geckoUrl}/0x201eba5cc46d216ce6dc03f6a759e8e766e956ae`,
-      //   `${geckoUrl}/0x4515A45337F461A11Ff0FE8aBF3c606AE5dC00c9`,
-      // ];
-      // const [mntData, usdcData, usdtData, moeData] = await Promise.all(
-      //   urls.map((url) =>
-      //     fetch(url, { method: 'GET' }).then((response) => response.json()),
-      //   ),
-      // );
-      // console.log(mntData, usdcData, usdtData, moeData);
-      // const mnt = {
-      //   mntBalance: Number(mntBalance?.balance || 0),
-      //   price: Number(mntData?.data?.attributes?.price_usd || 0),
-      //   value:
-      //     Number(mntBalance?.balance || 0) *
-      //     Number(mntData?.data?.attributes?.price_usd || 0),
-      // };
-      // const usdc = {
-      //   usdcBalance: Number(usdcBalance?.balance || 0),
-      //   price: Number(usdcData?.data?.attributes.price_usd || 0),
-      //   value: Number(usdcBalance?.balance || 0),
-      // };
-      // const usdt = {
-      //   usdtBalance: Number(usdtBalance?.balance || 0),
-      //   price: Number(usdtData?.data?.attributes.price_usd || 0),
-      //   value: Number(usdtBalance?.balance || 0),
-      // };
-      // const moe = {
-      //   moeBalance: Number(moeBalance?.balance || 0),
-      //   price: Number(moeData?.data?.attributes.price_usd || 0),
-      //   value:
-      //     Number(moeBalance?.balance || 0) *
-      //     Number(moeData?.data?.attributes.price_usd || 0),
-      // };
-      // return { mnt, usdc, usdt, moe };
+      const user = await this.UserModel.findOne({ linkCode });
+      if (!user?.evmWalletAddress || !user?.solanaWalletAddress) {
+        return {
+          message: ` you don't have a wallet connected on aegix agent bot`,
+        };
+      }
+      type AllTokenBalanceType = {
+        name: string;
+        balance: number;
+        network: string;
+        address: string;
+      }[];
+      const allTokenBalance = await this.showBalance(user.chatId, false);
+
+      const geckoUrl = `https://api.geckoterminal.com/api/v2/networks`;
+      const urls = (allTokenBalance as AllTokenBalanceType).map(
+        (token) => `${geckoUrl}/${token.network}/tokens/${token.address}`,
+      );
+
+      // Fetch data and update allTokenBalance
+      const responses = await Promise.all(
+        urls.map((url) =>
+          fetch(url, { method: 'GET' }).then((response) => response.json()),
+        ),
+      );
+
+      // Update allTokenBalance with the new fields
+      const updatedTokenBalance = (allTokenBalance as AllTokenBalanceType).map(
+        (token, index) => {
+          const response = responses[index];
+          return {
+            ...token,
+            price: Number(response.data?.attributes.price_usd || 0),
+            value:
+              Number(token.balance || 0) *
+              Number(response.data?.attributes.price_usd || 0),
+          };
+        },
+      );
+
+      return updatedTokenBalance;
     } catch (error) {
       console.log(error);
     }
   };
+  private rebalancePortfolio = async (user: UserDocument) => {
+    interface Token {
+      name: string;
+      balance: number;
+      network: string;
+      address: string;
+      price: number;
+      value: number;
+    }
 
-  // private rebalancePortfolio = async (user: UserDocument) => {
-  //   function calculatePercentage(value1, value2) {
-  //     const total = value1 + value2;
-  //     if (total === 0) return { percentage1: 0, percentage2: 0 }; // To avoid division by zero
+    // Helper function to calculate total value
+    function calculateTotalValue(tokens: Token[]) {
+      return tokens.reduce((sum, token) => sum + Number(token.value || 0), 0);
+    }
 
-  //     const percentage1 = (value1 / total) * 100;
-  //     const percentage2 = (value2 / total) * 100;
+    // Helper function to find a stablecoin (excluding the current token)
+    function findStablecoin(
+      tokens: Token[],
+      network: string,
+      excludeTokenName: string,
+    ): Token | undefined {
+      return tokens.find(
+        (t) =>
+          (t.name === 'USDC' || t.name === 'USDT') &&
+          t.network === network &&
+          t.name !== excludeTokenName,
+      );
+    }
 
-  //     return {
-  //       percentage1: percentage1.toFixed(2),
-  //       percentage2: percentage2.toFixed(2),
-  //     };
-  //   }
+    try {
+      const { upperThreshold, lowerThreshold } = user;
+      // Convert Map to object
+      const targetAllocations = Object.fromEntries(user.targetAllocations);
 
-  //   try {
-  //     // Destructuring the user object to get thresholds and allocations
-  //     const { upperThreshold, lowerThreshold, modeAllocation } = user;
+      // Early validation
+      if (Object.keys(targetAllocations).length === 0) {
+        console.log('No target allocations set, skipping rebalancing');
+        return;
+      }
 
-  //     const userPortfolio = await this.getPortfolio(user.linkCode);
+      const userPortfolio = (await this.getPortfolio(user.linkCode)) as Token[];
+      const totalPortfolioValue = calculateTotalValue(userPortfolio);
 
-  //     console.log(userPortfolio.moe);
-  //     const totalPortfoliosize = Number(
-  //       userPortfolio?.moe?.value + userPortfolio?.usdc?.value,
-  //     );
-  //     const portfolioPercentages = calculatePercentage(
-  //       userPortfolio?.moe?.value,
-  //       userPortfolio?.usdc?.value,
-  //     );
-  //     const modePercentage = Number(portfolioPercentages.percentage1);
+      if (totalPortfolioValue === 0) {
+        console.log('Portfolio value is zero, no rebalancing needed');
+        return;
+      }
 
-  //     // Check if rebalancing is needed
-  //     if (modePercentage > Number(upperThreshold)) {
-  //       // Calculate how much MOE to sell
-  //       const modeValueToSell =
-  //         ((modePercentage - Number(modeAllocation)) / 100) *
-  //         totalPortfoliosize;
+      // Calculate current percentages
+      const currentAllocations = userPortfolio.reduce(
+        (acc, token) => {
+          acc[token.name] = (Number(token.value) / totalPortfolioValue) * 100;
+          return acc;
+        },
+        {} as { [key: string]: number },
+      );
 
-  //       const actualModeTokenToSell =
-  //         Number(modeValueToSell) / Number(userPortfolio?.moe?.price);
-  //       console.log(
-  //         `Selling ${actualModeTokenToSell} worth of MOE to rebalance.`,
-  //       );
+      // Process each token
+      for (const token of userPortfolio) {
+        const targetPercentage = targetAllocations[token.name] || 0;
+        const currentPercentage = currentAllocations[token.name] || 0;
 
-  //       await this.promptAgentToRebalance(
-  //         user,
-  //         `Swap ${actualModeTokenToSell} moe to usdc`,
-  //       );
-  //     } else if (modePercentage < Number(lowerThreshold)) {
-  //       // Calculate how much USDC to buy MOE with
-  //       const usdcToSpend =
-  //         ((Number(modeAllocation) - modePercentage) / 100) *
-  //         totalPortfoliosize;
-  //       console.log(
-  //         `Buying ${usdcToSpend} worth of MOE to rebalance Portfolio.`,
-  //       );
+        console.log(
+          `Checking ${token.name}: Current ${currentPercentage.toFixed(2)}% ` +
+            `vs Target ${targetPercentage}%`,
+        );
 
-  //       await this.promptAgentToRebalance(
-  //         user,
-  //         `Swap ${usdcToSpend} usdc to moe`,
-  //       );
-  //     } else {
-  //       console.log(
-  //         'Portfolio is within acceptable balance, no action needed.',
-  //       );
-  //     }
-  //   } catch (error) {
-  //     console.error('Error during portfolio rebalancing:', error);
-  //   }
-  // };
+        // Skip if no target allocation
+        if (targetPercentage === 0) {
+          console.log(`No target allocation for ${token.name}, skipping`);
+          continue;
+        }
+
+        if (currentPercentage > targetPercentage + upperThreshold) {
+          const excessPercentage = currentPercentage - targetPercentage;
+          const valueToSell = (excessPercentage / 100) * totalPortfolioValue;
+          const amountToSell = valueToSell / Number(token.price);
+
+          // Find stablecoin, excluding the current token
+          const stablecoin =
+            findStablecoin(userPortfolio, token.network, token.name) ||
+            findStablecoin(
+              userPortfolio,
+              userPortfolio[0]?.network,
+              token.name,
+            );
+
+          if (!stablecoin) {
+            console.log(`No suitable stablecoin found to sell ${token.name}`);
+            continue;
+          }
+
+          if (stablecoin.value < valueToSell * 0.1) {
+            // Check if enough stablecoin
+            console.log(`Insufficient ${stablecoin.name} balance for swap`);
+            continue;
+          }
+
+          const swapType =
+            stablecoin.network === token.network ? 'same-chain' : 'cross-chain';
+
+          console.log(
+            `${swapType} sell: ${amountToSell.toFixed(4)} ${token.name} ` +
+              `($${valueToSell.toFixed(2)}) to ${stablecoin.name}`,
+          );
+
+          await this.promptAgentToRebalance(
+            user,
+            `Swap ${amountToSell.toFixed(4)} ${token.name.toLowerCase()} on ${token.network} ` +
+              `to ${stablecoin.name.toLowerCase()} on ${stablecoin.network}`,
+          );
+        } else if (currentPercentage < targetPercentage - lowerThreshold) {
+          const shortagePercentage = targetPercentage - currentPercentage;
+          const valueToBuy = (shortagePercentage / 100) * totalPortfolioValue;
+
+          const stablecoin =
+            findStablecoin(userPortfolio, token.network, token.name) ||
+            findStablecoin(
+              userPortfolio,
+              userPortfolio[0]?.network,
+              token.name,
+            );
+
+          if (!stablecoin) {
+            console.log(`No suitable stablecoin found to buy ${token.name}`);
+            continue;
+          }
+
+          if (stablecoin.value < valueToBuy) {
+            // Check if enough stablecoin
+            console.log(`Insufficient ${stablecoin.name} balance for swap`);
+            continue;
+          }
+
+          const swapType =
+            stablecoin.network === token.network ? 'same-chain' : 'cross-chain';
+
+          console.log(
+            `${swapType} buy: $${valueToBuy.toFixed(2)} worth of ${token.name} ` +
+              `using ${stablecoin.name}`,
+          );
+
+          await this.promptAgentToRebalance(
+            user,
+            `Swap ${valueToBuy.toFixed(2)} ${stablecoin.name.toLowerCase()} on ${stablecoin.network} ` +
+              `to ${token.name.toLowerCase()} on ${token.network}`,
+          );
+        } else {
+          console.log(`${token.name} within acceptable range`);
+        }
+      }
+    } catch (error) {
+      console.error('Error during portfolio rebalancing:', error);
+    }
+  };
 
   validateAllocations = async (input: string, chatId: number) => {
-    // Match numbers followed by an optional space and %
-    const matches = input.match(/(\d{1,3})\s*%/g);
+    const matches = input.match(/\b[A-Za-z]+:\d+\b/g);
 
     // 🚩 Error Handling: Invalid Format
-    if (!matches || matches.length !== 2) {
+    if (!matches || matches.length === 0) {
       await this.aegisAgentbot.sendMessage(
         chatId,
-        'Invalid input format. Example of valid input: "60% 40%"',
+        'Invalid input format. Example of valid input: "USDC:40,TRUMP:30,BOBO:20"',
       );
       return; // Exit early if invalid
     }
 
-    // ✅ Conversion: Extract numbers
-    const allocations = matches.map((value) =>
-      parseInt(value.replace('%', '')),
-    );
+    // ✅ Conversion: Extract allocations into an object
+    const allocations: Record<string, number> = {};
+    matches.forEach((pair) => {
+      const [key, value] = pair.split(':');
+      allocations[key] = parseInt(value, 10);
+    });
 
-    // 🚩 Validation: Sum must be 100
-    const total = allocations.reduce((sum, num) => sum + num, 0);
-    if (total !== 100) {
+    // 🚩 Validation: Sum must not exceed 100
+    const total = Object.values(allocations).reduce((sum, num) => sum + num, 0);
+    if (total > 100) {
       await this.aegisAgentbot.sendMessage(
         chatId,
-        `Allocations must sum to 100. Current sum: ${total}`,
+        `Allocations must not exceed 100. Current sum: ${total}`,
       );
       return; // Exit early if invalid
     }
 
     console.log(allocations);
-    return { allocation1: allocations[0], allocation2: allocations[1] };
+    return allocations;
   };
 
   validateThresholds = async (input: string, chatId: number) => {
@@ -1465,7 +1764,7 @@ export class AegisBotService {
     if (!matches || matches.length !== 2) {
       await this.aegisAgentbot.sendMessage(
         chatId,
-        'Invalid input format. Example of valid input: "70% 30%"',
+        'Invalid input format. Example of valid input: 5% 5%',
       );
       return;
     }
@@ -1485,20 +1784,20 @@ export class AegisBotService {
     return { upperThreshold: thresholds[0], lowerThreshold: thresholds[1] };
   };
 
-  // @Cron('*/1 * * * *')
+  @Cron('*/1 * * * *')
   async handleRebalancing() {
     console.log('running cron');
-    // try {
-    //   const users = await this.UserModel.find();
+    try {
+      const users = await this.UserModel.find();
 
-    //   for (const user of users) {
-    //     if (user.rebalanceEnabled) {
-    //       // Check if rebalancing is turned on
-    //       await this.rebalancePortfolio(user);
-    //     }
-    //   }
-    // } catch (error) {
-    //   console.error('Error fetching users or rebalancing:', error);
-    // }
+      for (const user of users) {
+        if (user.rebalanceEnabled) {
+          // Check if rebalancing is turned on
+          await this.rebalancePortfolio(user);
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching users or rebalancing:', error);
+    }
   }
 }
