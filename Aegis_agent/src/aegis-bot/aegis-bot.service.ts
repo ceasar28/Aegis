@@ -1646,7 +1646,7 @@ export class AegisBotService {
     return { upperThreshold: thresholds[0], lowerThreshold: thresholds[1] };
   };
 
-  // @Cron('*/2 * * * *')
+  @Cron('*/2 * * * *')
   async handleRebalancing() {
     console.log('running cron');
     try {

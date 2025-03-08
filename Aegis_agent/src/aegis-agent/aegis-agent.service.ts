@@ -7,23 +7,8 @@ import { privateKeyToAccount } from 'viem/accounts';
 import { mantle } from 'viem/chains';
 import { getOnChainTools } from '@goat-sdk/adapter-vercel-ai';
 import { moe } from '../../sdk/goat-sdk/plugins/moe/src';
-import {
-  Connection,
-  PublicKey,
-  Keypair,
-  Transaction,
-  sendAndConfirmTransaction,
-  VersionedTransaction,
-  TransactionInstruction,
-  clusterApiUrl,
-} from '@solana/web3.js';
-import {
-  getOrCreateAssociatedTokenAccount,
-  approveChecked,
-  TOKEN_PROGRAM_ID,
-  getAssociatedTokenAddress,
-  createAssociatedTokenAccountInstruction,
-} from '@solana/spl-token';
+import { Connection, PublicKey, Keypair, Transaction } from '@solana/web3.js';
+import { getOrCreateAssociatedTokenAccount } from '@solana/spl-token';
 import bs58 from 'bs58';
 import {
   USDC,
@@ -39,8 +24,6 @@ import { viem } from '@goat-sdk/wallet-viem';
 import {
   fetchQuote,
   swapFromEvm,
-  swapFromSolana,
-  Quote,
   addresses,
   ChainName,
   createSwapFromSolanaInstructions,
@@ -424,7 +407,7 @@ export class AegisAgentService {
     }
   }
 
-  async crossSwapTokenMain(pK: string) {
+  async crossSwapTokenMain() {
     // const provider = createPublicClient({
     //   chain: base,
     //   transport: http('https://rpc.network'),
