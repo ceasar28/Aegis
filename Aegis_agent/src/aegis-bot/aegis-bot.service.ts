@@ -172,7 +172,10 @@ export class AegisBotService {
           );
           console.log('response :', response);
           if (response) {
-            await this.aegisAgentbot.sendMessage(user.chatId, response);
+            await this.aegisAgentbot.sendMessage(
+              user.chatId,
+              `Transaction Successful\n${response}`,
+            );
           } else {
             await this.aegisAgentbot.sendMessage(
               user.chatId,
@@ -237,10 +240,15 @@ export class AegisBotService {
             { upsert: true },
           );
         }
+
+        // Convert to string (comma-separated)
+        const allocationString = Object.entries(Allocation)
+          .map(([key, value]) => `${key}: ${value}`)
+          .join(', ');
         await this.SessionModel.deleteMany({ chatId: msg.chat.id });
         await this.aegisAgentbot.sendMessage(
           msg.chat.id,
-          `Allocation succesfully set\n- USDC :${Allocation} %`,
+          `Allocation succesfully set\n-${allocationString}`,
         );
       }
 
@@ -439,7 +447,10 @@ export class AegisBotService {
           );
           console.log('response :', response);
           if (response) {
-            await this.aegisAgentbot.sendMessage(user.chatId, response);
+            await this.aegisAgentbot.sendMessage(
+              user.chatId,
+              `Transaction Successful\n${response}`,
+            );
           } else {
             await this.aegisAgentbot.sendMessage(
               user.chatId,
@@ -535,7 +546,7 @@ export class AegisBotService {
           // const matches = response.match(regex);
           return await this.aegisAgentbot.sendMessage(
             user.chatId,
-            `🔔Rebalance Alert🔔\n\n${msg}}`,
+            `🔔Rebalance Alert🔔\n\n${msg} was successful}`,
             {
               parse_mode: 'Markdown',
             },
