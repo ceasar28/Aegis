@@ -20,15 +20,15 @@ export const allFeaturesMarkup = async (user: UserDocument) => {
           }),
         },
       ],
-      [
-        {
-          text: `${user.enableAgenticAutoSwap ? `⇄ Agentic Auto bridge mode Enabled` : '⇌  Agentic Auto bridge mode Disabled'}`,
-          callback_data: JSON.stringify({
-            command: '/disableAgenticSwap',
-            language: 'english',
-          }),
-        },
-      ],
+      // [
+      //   {
+      //     text: `${user.enableAgenticAutoSwap ? `⇄ Agentic Auto bridge mode Enabled` : '⇌  Agentic Auto bridge mode Disabled'}`,
+      //     callback_data: JSON.stringify({
+      //       command: '/disableAgenticSwap',
+      //       language: 'english',
+      //     }),
+      //   },
+      // ],
       [
         {
           text: `${user.rebalanceEnabled ? `✅ Auto Rebalancing mode Enabled` : '🔄 Enable Auto Rebalancing agent mode'}`,
