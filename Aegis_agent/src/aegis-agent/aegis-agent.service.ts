@@ -7,7 +7,6 @@ import { privateKeyToAccount } from 'viem/accounts';
 import { mantle } from 'viem/chains';
 import { getOnChainTools } from '@goat-sdk/adapter-vercel-ai';
 import { moe } from '../../sdk/goat-sdk/plugins/moe/src';
-import * as multichainWallet from 'multichain-crypto-wallet';
 import {
   Connection,
   PublicKey,
